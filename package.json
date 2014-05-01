@@ -1,0 +1,38 @@
+{
+  "name": "generator-craft",
+  "version": "0.0.1",
+  "description": "Yeoman generator",
+  "license": "MIT",
+  "main": "app/index.js",
+  "repository": "ktbartholomew/generator-craft",
+  "author": {
+    "name": "Keith Bartholomew",
+    "email": "",
+    "url": "https://github.com/ktbartholomew"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "files": [
+    "app"
+  ],
+  "keywords": [
+    "yeoman-generator"
+  ],
+  "dependencies": {
+    "yeoman-generator": "~0.16.0",
+    "chalk": "~0.4.0",
+    "underscore": "*",
+    "underscore.string": "*",
+    "rimraf": "*"
+  },
+  "devDependencies": {
+    "mocha": "*"
+  },
+  "peerDependencies": {
+    "yo": ">=1.0.0"
+  }
+}

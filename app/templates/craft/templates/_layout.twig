@@ -1,0 +1,57 @@
+{#
+ # Layout template
+ # ---------------
+ #
+ # This template defines your site’s global layout. It can be
+ # “extended” by other templates to fill in the gaps.
+ #
+ # See Twig’s Template Inheritance documentation for more details:
+ # http://twig.sensiolabs.org/doc/templates.html#template-inheritance
+ #}
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">
+<head>
+	<meta charset="utf-8" />
+	<meta content="initial-scale=1, minimum-scale=1, width=device-width" name="viewport">
+  <meta http-equiv="x-ua-compatible" content="IE=edge">
+  <meta name="description" value="{% block metaDescription %}{{ seo.metaDescription }}{% endblock %}">
+
+	<title>{% if title is defined %}{{ title }} - {% endif %}{{ seo.metaTitle }}</title>
+
+	<link rel="home" href="{{ siteUrl }}" />
+	<link rel="stylesheet" href="{{ craft.config.environmentVariables['frontEndAssets'] }}css/site.css">
+	<!--[if lt IE 9]>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+	{% block head_end %}{% endblock %}
+</head>
+<body>
+	{% block body_start %}{% endblock %}
+	{% block header %}
+		{% set pages = craft.entries.section('pages') %}
+		<nav id="site-nav">
+			<ul role="navigation">
+				{% nav page in pages %}
+          <li>
+            {{ page.getLink() }}
+            {% ifchildren %}
+              <ul>
+                {% children %}
+              </ul>
+            {% endifchildren %}
+          </li>
+        {% endnav %}
+			</ul>
+		</nav>
+	{% endblock %}
+	{% block content %}{% endblock %}
+	{% block footer %}{% endblock %}
+	{% block scripts_start %}{% endblock %}
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script>
+	<script src="/bower_components/requirejs/require.js" data-main="{{ craft.config.environmentVariables['frontEndAssets'] }}js/site.js"></script>
+	{% block body_end %}{% endblock %}
+	{% if craft.config.environmentVariables['env'] == 'dev' %}<script src="http://localhost:35729/livereload.js"></script>{% endif %}
+</body>
+</html>

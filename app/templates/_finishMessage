@@ -1,0 +1,54 @@
+     .===========                          =====;      
+    ======. ,=====                        .=====       
+   ====        -=                         ===          
+  ====                                    ==;          
+ ===-                                    ,==           
+ ===                                     ===     =     
+===                                      ===    ==
+===                                      ===   ===
+===                ;==  -=  =======     ;==============
+===                =======  ========   ===============
+===                =======  =.   ===  ===============
+===                ===.          -==    ===   ===
+===                ==.           .==    ===   ===
+===                ==       ==== ;==    ==-   ===
+===               ===     ==========   .==    ==- 
+===               ===    -===  -====   ===    == 
+====              ===    ===     ===   ===   === 
+ ====        ,;   ==.    ==      ==.   ===   === 
+  =====-  .=====  ==     ===   .===    ===   ===; 
+   ============  -==      =========    ==    -=====    
+     =======-    ===      .====,===   ===     =====    
+                                      ===              
+                                      ===              
+                                      ===              
+                                      ==               
+                                     -==               
+                                     ===               
+                                                                     
+
+Craft is now installed!
+
+You should add the following line to your `/etc/hosts` file so you can use Craft
+locally free of licensing restrictions:
+
+127.0.0.1 craft.dev
+
+You should then be able to access the site at:
+[http://craft.dev:8080/]
+
+The admin portal is at:
+[http://craft.dev:8080/admin]
+User     : admin
+Password : password
+
+Finally, run `grunt watch` while working to get all of these perks:
+
+* Sass/Compass auto-compile on save
+* JSHint on save
+* Browser auto-refresh on save
+
+Before you move the code to staging or production, you should run `grunt build`
+to generate minified versions of your CSS and Javascript.
+
+Happy building!

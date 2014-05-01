@@ -1,0 +1,120 @@
+@font-face {
+  font-family: 'lato-regular';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Lato Regular'), local('Lato-Regular'), url(http://themes.googleusercontent.com/static/fonts/lato/v7/qIIYRU-oROkIk8vfvxw6QvesZW2xOQ-xsNqO47m55DA.woff) format('woff');
+}
+@font-face {
+  font-family: 'lato-bold';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Lato Bold'), local('Lato-Bold'), url(http://themes.googleusercontent.com/static/fonts/lato/v7/qdgUG4U09HnJwhYI-uK18wLUuEpTyoUstqEm5AMlJo4.woff) format('woff');
+}
+@font-face {
+  font-family: 'lato-regular-italic';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Lato Italic'), local('Lato-Italic'), url(http://themes.googleusercontent.com/static/fonts/lato/v7/RYyZNoeFgb0l7W3Vu1aSWOvvDin1pK8aKteLpeZ5c0A.woff) format('woff');
+}
+@font-face {
+  font-family: 'lato-bold-italic';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Lato Bold Italic'), local('Lato-BoldItalic'), url(http://themes.googleusercontent.com/static/fonts/lato/v7/HkF_qI1x_noxlxhrhMQYELO3LdcAZYWl9Si6vvxL-qU.woff) format('woff');
+}
+
+.lato-regular {
+  font-family: 'lato-regular', Arial, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
+
+.lato-regular-italic {
+  font-family: 'lato-regular-italic', Arial, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
+
+.lato-bold {
+  font-family: 'lato-bold', Arial, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
+
+.lato-bold-italic {
+  font-family: 'lato-bold-italic', Arial, sans-serif;
+  font-weight: normal;
+  font-style: normal;
+}
+
+
+
+
+
+
+body, html {
+  @extend .lato-regular;
+  font-size: $font-size-base;
+  color: $text-color;
+}
+
+em, i {
+  @extend .lato-regular-italic;
+
+  strong, b {
+    @extend .lato-bold-italic;
+  }
+}
+
+strong, b {
+  @extend .lato-bold;
+
+  em, i {
+    @extend .lato-bold-italic;
+  }
+}
+
+p {
+  margin-bottom: 1em;
+}
+
+a {
+  color: $brand-primary;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+  &:active {
+    color: darken($brand-primary, 10%);
+  }
+}
+
+h1,h2,h3,h4,h5,h6 {
+  font-weight: normal;
+}
+
+h1 { 
+  font-size: $font-size-h1;
+  margin-bottom: 0.5em;
+}
+h2 {
+  font-size: $font-size-h2;
+  margin-bottom: 0.5em;
+}
+h3 {
+  font-size: $font-size-h3;
+  margin-bottom: 0.5em;
+}
+h4 {
+  font-size: $font-size-h4;
+  margin-bottom: 0.5em;
+}
+h5 {
+  font-size: $font-size-h5;
+  margin-bottom: 0.5em;
+}
+h6 {
+  font-size: $font-size-h6;
+  margin-bottom: 0.5em;
+}

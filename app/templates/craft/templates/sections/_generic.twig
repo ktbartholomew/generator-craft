@@ -1,0 +1,10 @@
+<section class="generic{% if section.modifiers | length %}{% for modifier in section.modifiers %} {{ modifier.className }}{% endfor %}{% endif %}">
+	{% if section.header %}
+	<header>
+		{{ section.header }}	
+	</header>
+	{% endif %}
+	{% if section.body %}
+	{{ section.body }}
+	{% endif %}
+</section>

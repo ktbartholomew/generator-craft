@@ -39,8 +39,8 @@ After everything is done, you _should_ have a Vagrant instance with Craft instal
 
 Assuming you forward port 8080 on your host to port 80 on the guest, you would then access the front-end at [http://craft.dev:8080/](http://craft.dev:8080/) and the control panel at [http://craft.dev:8080/admin](http://craft.dev:8080/admin) with these credentials:
 
-**User: ** admin <br>
-**Pass: ** password
+**User:** admin <br>
+**Pass:** password
 
 ## Notes
 

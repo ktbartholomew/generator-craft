@@ -1,4 +1,6 @@
-# generator-craft [![Build Status](https://secure.travis-ci.org/ktbartholomew/generator-craftcms.png?branch=master)](https://travis-ci.org/ktbartholomew/generator-craft)
+# generator-craft [![Build Status](https://travis-ci.org/ktbartholomew/generator-craft.svg?branch=master)](https://travis-ci.org/ktbartholomew/generator-craft)
+
+> A Yeoman generator that creates a Vagrant box, then installs the Craft CMS and some front-end tools.
 
 ## Pre-requisites
 

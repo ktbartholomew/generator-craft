@@ -33,13 +33,15 @@ var CraftGenerator = yeoman.generators.Base.extend({
   askFor: function () {
     var cb = this.async();
 
-    // have Yeoman greet the user
-    this.log(this.yeoman);
-
-    // replace it with a short and sweet description of your generator
-    this.log(chalk.magenta('You\'re using the incredible Craft CMS generator.'));
+    this.log( chalk.green(this._.template(this.read('messages/_start'), {})) );
 
     var prompts = [
+      {
+        type: 'text',
+        name: 'boxName',
+        message: 'What is the name of the Vagrant box you wish to import?',
+        default: 'lamp3',
+      },
       {
         type: 'text',
         name: 'siteName',
@@ -61,7 +63,7 @@ var CraftGenerator = yeoman.generators.Base.extend({
       {
         type: 'password',
         name: 'dbPass',
-        message: 'What is the database user\'s password? (Leave blank if using Vagrant)',
+        message: 'What is the database user\'s password? (default is blank)',
         default: ''
       },
       {
@@ -84,6 +86,7 @@ var CraftGenerator = yeoman.generators.Base.extend({
     ];
 
     this.prompt(prompts, function (props) {
+      this.boxName = props.boxName;
       this.siteName = props.siteName;
       this.dbHost   = props.dbHost;
       this.dbUser   = props.dbUser;
@@ -132,36 +135,32 @@ var CraftGenerator = yeoman.generators.Base.extend({
   },
 
   vagrant: function () {
+    var generator = this;
     var cb = this.async();
 
     proc.exec('vagrant box list --machine-readable', function (error, stdout, stderr) {
-      if( stdout.indexOf('lamp3') != -1) {
-        var boxName = 'lamp3';
-      }
-      else if( stdout.indexOf('lamp2.1') != -1) {
-        var boxName = 'lamp2.1';
+      if( stdout.indexOf(generator.boxName) != -1) {
+        // The box exists. run `vagrant init` for this box.
+        generator.log('Cloning this Vagrant box: %s', generator.boxName);
+        proc.exec('vagrant init ' + generator.boxName, function (error, stdout, stderr) {
+          generator.log('Cloning the Vagrant box. This could take a while...');
+          proc.exec('vagrant up --machine-readable', function (error, stdout, stderr) {
+            generator.log('Running some commands to set up the box...');
+            proc.exec('vagrant ssh --machine-readable -c "sh /vagrant/setup.sh"', function (error, stdout, stderr) {
+              cb();
+            });
+          });
+        });
       }
       else {
         return false;
+        generator.error(chalk.red('ERROR: Box %s does not exist'), generator.boxName);
       }
-      console.log('Cloning this Vagrant box: %s', boxName);
-
-      proc.exec('vagrant init ' + boxName, function (error, stdout, stderr) {
-        console.log('Cloning the Vagrant box. This could take a while...');
-        proc.exec('vagrant up --machine-readable', function (error, stdout, stderr) {
-          console.log('Running some commands to set up the box...');
-          proc.exec('vagrant ssh --machine-readable -c "sh /vagrant/setup.sh"', function (error, stdout, stderr) {
-            cb();
-          });
-        });
-      });
     });
-
-    
   },
 
   cleanUp : function () {
-    console.log('Cleaning up...');
+    this.log('Cleaning up...');
 
     rimraf.sync('vhost.conf');
     rimraf.sync('pre_db.sql');
@@ -177,7 +176,7 @@ var CraftGenerator = yeoman.generators.Base.extend({
   },
 
   _finish : function () {
-    console.log( chalk.green(this._.template(this.read('_finishMessage'), {})) );
+    this.log( chalk.green(this._.template(this.read('messages/_finish'), {})) );
   }
 });
 

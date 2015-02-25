@@ -21,7 +21,7 @@
   ],
   "dependencies": {
     "yeoman-generator": "~0.16.0",
-    "chalk": "~0.4.0",
+    "chalk": "~1.0.0",
     "underscore": "*",
     "underscore.string": "*",
     "rimraf": "*"

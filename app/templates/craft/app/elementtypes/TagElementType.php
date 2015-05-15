@@ -2,22 +2,22 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * The TagElementType class is responsible for implementing and definingtags as a native element type in Craft.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Tag element type
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.elementtypes
+ * @since     1.1
  */
 class TagElementType extends BaseElementType
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
-	 * Returns the element type name.
+	 * @inheritDoc IComponentType::getName()
 	 *
 	 * @return string
 	 */
@@ -27,7 +27,7 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Returns whether this element type has content.
+	 * @inheritDoc IElementType::hasContent()
 	 *
 	 * @return bool
 	 */
@@ -37,7 +37,17 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Returns whether this element type stores data on a per-locale basis.
+	 * @inheritDoc IElementType::hasTitles()
+	 *
+	 * @return bool
+	 */
+	public function hasTitles()
+	{
+		return true;
+	}
+
+	/**
+	 * @inheritDoc IElementType::isLocalized()
 	 *
 	 * @return bool
 	 */
@@ -47,9 +57,10 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Returns this element type's sources.
+	 * @inheritDoc IElementType::getSources()
 	 *
 	 * @param string|null $context
+	 *
 	 * @return array|false
 	 */
 	public function getSources($context = null)
@@ -70,67 +81,70 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Defines which model attributes should be searchable.
+	 * @inheritDoc IElementType::defineSearchableAttributes()
 	 *
 	 * @return array
 	 */
 	public function defineSearchableAttributes()
 	{
+		// TODO: Remove this in 3.0
 		return array('name');
 	}
 
 	/**
-	 * Returns the attributes that can be shown/sorted by in table views.
+	 * @inheritDoc IElementType::defineTableAttributes()
 	 *
 	 * @param string|null $source
+	 *
 	 * @return array
 	 */
 	public function defineTableAttributes($source = null)
 	{
 		return array(
-			'name' => Craft::t('Name'),
+			'title' => Craft::t('Title'),
 		);
 	}
 
 	/**
-	 * Defines any custom element criteria attributes for this element type.
+	 * @inheritDoc IElementType::defineCriteriaAttributes()
 	 *
 	 * @return array
 	 */
 	public function defineCriteriaAttributes()
 	{
 		return array(
-			'name'    => AttributeType::String,
 			'group'   => AttributeType::Mixed,
 			'groupId' => AttributeType::Mixed,
-			'order'   => array(AttributeType::String, 'default' => 'tags.name asc'),
+			'order'   => array(AttributeType::String, 'default' => 'content.title asc'),
 
 			// TODO: Deprecated
+			'name'    => AttributeType::String,
 			'set'     => AttributeType::Mixed,
 			'setId'   => AttributeType::Mixed,
 		);
 	}
 
 	/**
-	 * Modifies an element query targeting elements of this type.
+	 * @inheritDoc IElementType::modifyElementsQuery()
 	 *
-	 * @param DbCommand $query
+	 * @param DbCommand            $query
 	 * @param ElementCriteriaModel $criteria
+	 *
 	 * @return mixed
 	 */
 	public function modifyElementsQuery(DbCommand $query, ElementCriteriaModel $criteria)
 	{
 		$query
-			->addSelect('tags.groupId, tags.name')
+			->addSelect('tags.groupId')
 			->join('tags tags', 'tags.id = elements.id');
+
+		// Still support the deprecated params
 
 		if ($criteria->name)
 		{
-			$query->andWhere(DbHelper::parseParam('tags.name', $criteria->name, $query->params));
+			$query->andWhere(DbHelper::parseParam('content.title', $criteria->name, $query->params));
 		}
 
-
-		// Still support the deprecated params
 		if ($criteria->setId && !$criteria->groupId)
 		{
 			craft()->deprecator->log('TagElementType::modifyElementsQuery():setId_param', 'The ‘setId’ tag param has been deprecated. Use ‘groupId’ instead.');
@@ -155,12 +169,19 @@ class TagElementType extends BaseElementType
 			$query->join('taggroups taggroups', 'taggroups.id = tags.groupId');
 			$query->andWhere(DbHelper::parseParam('taggroups.handle', $criteria->group, $query->params));
 		}
+
+		// Backwards compatibility with order=name (tags had names before 2.3)
+		if (is_string($criteria->order))
+		{
+			$criteria->order = preg_replace('/\bname\b/', 'title', $criteria->order);
+		}
 	}
 
 	/**
-	 * Populates an element model based on a query result.
+	 * @inheritDoc IElementType::populateElementModel()
 	 *
 	 * @param array $row
+	 *
 	 * @return array
 	 */
 	public function populateElementModel($row)
@@ -169,20 +190,22 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Returns the HTML for an editor HUD for the given element.
+	 * @inheritDoc IElementType::getEditorHtml()
 	 *
 	 * @param BaseElementModel $element
+	 *
 	 * @return string
 	 */
 	public function getEditorHtml(BaseElementModel $element)
 	{
 		$html = craft()->templates->renderMacro('_includes/forms', 'textField', array(
 			array(
-				'label'     => Craft::t('Name'),
-				'id'        => 'name',
-				'name'      => 'name',
-				'value'     => $element->name,
-				'errors'    => $element->getErrors('name'),
+				'label'     => Craft::t('Title'),
+				'locale'    => $element->locale,
+				'id'        => 'title',
+				'name'      => 'title',
+				'value'     => $element->getContent()->title,
+				'errors'    => $element->getErrors('title'),
 				'first'     => true,
 				'autofocus' => true,
 				'required'  => true
@@ -195,19 +218,15 @@ class TagElementType extends BaseElementType
 	}
 
 	/**
-	 * Saves a given element.
+	 * @inheritDoc IElementType::saveElement()
 	 *
 	 * @param BaseElementModel $element
-	 * @param array $params
+	 * @param array            $params
+	 *
 	 * @return bool
 	 */
 	public function saveElement(BaseElementModel $element, $params)
 	{
-		if (isset($params['name']))
-		{
-			$element->name = $params['name'];
-		}
-
 		return craft()->tags->saveTag($element);
 	}
 }

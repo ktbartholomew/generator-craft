@@ -2,41 +2,37 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Field layout tab model class.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Field layout tab model class
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.models
+ * @since     1.0
  */
 class FieldLayoutTabModel extends BaseModel
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_layout;
+
+	/**
+	 * @var
+	 */
 	private $_fields;
 
-	/**
-	 * @access protected
-	 * @return array
-	 */
-	protected function defineAttributes()
-	{
-		return array(
-			'id'        => AttributeType::Number,
-			'layoutId'  => AttributeType::Number,
-			'name'      => AttributeType::Name,
-			'sortOrder' => AttributeType::SortOrder,
-		);
-	}
+	// Public Methods
+	// =========================================================================
 
 	/**
-	 * Returns the tab's layout.
+	 * Returns the tab’s layout.
 	 *
-	 * @return FieldLayoutModel|null
+	 * @return FieldLayoutModel|null The tab’s layout.
 	 */
 	public function getLayout()
 	{
@@ -59,9 +55,11 @@ class FieldLayoutTabModel extends BaseModel
 	}
 
 	/**
-	 * Sets the tab's layout.
+	 * Sets the tab’s layout.
 	 *
-	 * @param FieldLayoutModel $layout
+	 * @param FieldLayoutModel $layout The tab’s layout.
+	 *
+	 * @return null
 	 */
 	public function setLayout(FieldLayoutModel $layout)
 	{
@@ -69,9 +67,9 @@ class FieldLayoutTabModel extends BaseModel
 	}
 
 	/**
-	 * Returns the tab's fields.
+	 * Returns the tab’s fields.
 	 *
-	 * @return array
+	 * @return array The tab’s fields.
 	 */
 	public function getFields()
 	{
@@ -99,9 +97,11 @@ class FieldLayoutTabModel extends BaseModel
 	}
 
 	/**
-	 * Sets the tab's fields.
+	 * Sets the tab’s fields.
 	 *
-	 * @param array $fields
+	 * @param array $fields The tab’s fields.
+	 *
+	 * @return null
 	 */
 	public function setFields($fields)
 	{
@@ -116,5 +116,23 @@ class FieldLayoutTabModel extends BaseModel
 
 			$this->_fields[] = $field;
 		}
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * @inheritDoc BaseModel::defineAttributes()
+	 *
+	 * @return array
+	 */
+	protected function defineAttributes()
+	{
+		return array(
+			'id'        => AttributeType::Number,
+			'layoutId'  => AttributeType::Number,
+			'name'      => AttributeType::Name,
+			'sortOrder' => AttributeType::SortOrder,
+		);
 	}
 }

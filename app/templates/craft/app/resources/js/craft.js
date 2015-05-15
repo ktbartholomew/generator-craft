@@ -1,11 +1,9 @@
 /**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.resources
  */
 
 (function($){
@@ -25,11 +23,12 @@ $.extend(Craft,
 	 * @var object
 	 */
 	asciiCharMap: {
-		'223':'ss', '224':'a',  '225':'a',  '226':'a',  '229':'a',  '227':'ae', '230':'ae', '228':'ae', '231':'c',  '232':'e',
-		'233':'e',  '234':'e',  '235':'e',  '236':'i',  '237':'i',  '238':'i',  '239':'i',  '241':'n',  '242':'o',  '243':'o',
-		'244':'o',  '245':'o',  '246':'oe', '249':'u',  '250':'u',  '251':'u',  '252':'ue', '255':'y',  '257':'aa', '269':'ch',
-		'275':'ee', '291':'gj', '299':'ii', '311':'kj', '316':'lj', '326':'nj', '353':'sh', '363':'uu', '382':'zh', '256':'aa',
-		'268':'ch', '274':'ee', '290':'gj', '298':'ii', '310':'kj', '315':'lj', '325':'nj', '352':'sh', '362':'uu', '381':'zh'
+		'216':'O',  '223':'ss', '224':'a',  '225':'a',  '226':'a',  '229':'a',  '227':'ae', '230':'ae', '228':'ae', '231':'c',
+		'232':'e',  '233':'e',  '234':'e',  '235':'e',  '236':'i',  '237':'i',  '238':'i',  '239':'i',  '241':'n',  '242':'o',
+		'243':'o',  '244':'o',  '245':'o',  '246':'oe', '248':'o',  '249':'u',  '250':'u',  '251':'u',  '252':'ue', '255':'y',
+		'257':'aa', '269':'ch', '275':'ee', '291':'gj', '299':'ii', '311':'kj', '316':'lj', '326':'nj', '353':'sh', '363':'uu',
+		'382':'zh', '256':'aa', '268':'ch', '274':'ee', '290':'gj', '298':'ii', '310':'kj', '315':'lj', '325':'nj', '337':'o',
+		'352':'sh', '362':'uu', '369':'u',  '381':'zh'
 	},
 
 	/**
@@ -320,6 +319,23 @@ $.extend(Craft,
 	},
 
 	/**
+	 * Returns a hidden CSRF token input, if CSRF protection is enabled.
+	 *
+	 * @return string
+	 */
+	getCsrfInput: function()
+	{
+		if (Craft.csrfTokenName)
+		{
+			return '<input type="hidden" name="'+Craft.csrfTokenName+'" value="'+Craft.csrfTokenValue+'"/>';
+		}
+		else
+		{
+			return '';
+		}
+	},
+
+	/**
 	 * Posts an action request to the server.
 	 *
 	 * @param string action
@@ -335,7 +351,25 @@ $.extend(Craft,
 		{
 			options = callback;
 			callback = data;
-			data = undefined;
+			data = {};
+		}
+
+		if (Craft.csrfTokenValue && Craft.csrfTokenName)
+		{
+			if (typeof data == 'string')
+			{
+				if (data) { data += '&' }
+				data += Craft.csrfTokenName + '=' + Craft.csrfTokenValue
+			}
+			else
+			{
+				if (typeof data !== 'object')
+				{
+					data = {};
+				}
+
+				data[Craft.csrfTokenName] = Craft.csrfTokenValue;
+			}
 		}
 
 		var jqXHR = $.ajax($.extend({
@@ -757,6 +791,71 @@ $.extend(Craft,
 	},
 
 	/**
+	 * Converts a number of seconds into a human-facing time duration.
+	 */
+	secondsToHumanTimeDuration: function(seconds, showSeconds)
+	{
+		if (typeof showSeconds == 'undefined')
+		{
+			showSeconds = true;
+		}
+
+		var secondsInWeek   = 604800,
+			secondsInDay    = 86400,
+			secondsInHour   = 3600,
+			secondsInMinute = 60;
+
+		var weeks = Math.floor(seconds / secondsInWeek);
+		seconds = seconds % secondsInWeek;
+
+		var days = Math.floor(seconds / secondsInDay);
+		seconds = seconds % secondsInDay;
+
+		var hours = Math.floor(seconds / secondsInHour);
+		seconds = seconds % secondsInHour;
+
+		if (showSeconds)
+		{
+			var minutes = Math.floor(seconds / secondsInMinute);
+			seconds = seconds % secondsInMinute;
+		}
+		else
+		{
+			var minutes = Math.round(seconds / secondsInMinute);
+			seconds = 0;
+		}
+
+		timeComponents = [];
+
+		if (weeks)
+		{
+			timeComponents.push(weeks+' '+(weeks == 1 ? Craft.t('week') : Craft.t('weeks')));
+		}
+
+		if (days)
+		{
+			timeComponents.push(days+' '+(days == 1 ? Craft.t('day') : Craft.t('days')));
+		}
+
+		if (hours)
+		{
+			timeComponents.push(hours+' '+(hours == 1 ? Craft.t('hour') : Craft.t('hours')));
+		}
+
+		if (minutes || (!showSeconds && !weeks && !days && !hours))
+		{
+			timeComponents.push(minutes+' '+(minutes == 1 ? Craft.t('minute') : Craft.t('minutes')));
+		}
+
+		if (seconds || (showSeconds && !weeks && !days && !hours && !minutes))
+		{
+			timeComponents.push(seconds+' '+(seconds == 1 ? Craft.t('second') : Craft.t('seconds')));
+		}
+
+		return timeComponents.join(', ');
+	},
+
+	/**
 	 * Converts extended ASCII characters to ASCII.
 	 *
 	 * @param string str
@@ -823,6 +922,62 @@ $.extend(Craft,
 		return $ul;
 	},
 
+	appendHeadHtml: function(html)
+	{
+		if (!html)
+		{
+			return;
+		}
+
+		// Prune out any link tags that are already included
+		var $existingCss = $('link[href]');
+
+		if ($existingCss.length)
+		{
+			var existingCss = [];
+
+			for (var i = 0; i < $existingCss.length; i++)
+			{
+				var href = $existingCss.eq(i).attr('href');
+				existingCss.push(href.replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&"));
+			}
+
+			var regexp = new RegExp('<link\\s[^>]*href="(?:'+existingCss.join('|')+')".*?></script>', 'g');
+
+			html = html.replace(regexp, '');
+		}
+
+		$('head').append(html);
+	},
+
+	appendFootHtml: function(html)
+	{
+		if (!html)
+		{
+			return;
+		}
+
+		// Prune out any script tags that are already included
+		var $existingJs = $('script[src]');
+
+		if ($existingJs.length)
+		{
+			var existingJs = [];
+
+			for (var i = 0; i < $existingJs.length; i++)
+			{
+				var src = $existingJs.eq(i).attr('src');
+				existingJs.push(src.replace(/[.?*+^$[\]\\(){}|-]/g, "\\$&"));
+			}
+
+			var regexp = new RegExp('<script\\s[^>]*src="(?:'+existingJs.join('|')+')".*?></script>', 'g');
+
+			html = html.replace(regexp, '');
+		}
+
+		Garnish.$bod.append(html);
+	},
+
 	/**
 	 * Initializes any common UI elements in a given container.
 	 *
@@ -838,6 +993,7 @@ $.extend(Craft,
 		$('.lightswitch', $container).lightswitch();
 		$('.nicetext', $container).nicetext();
 		$('.pill', $container).pill();
+		$('.formsubmit', $container).formsubmit();
 		$('.menubtn', $container).menubtn();
 
 		// Make placeholders work for IE9, too.
@@ -953,7 +1109,15 @@ $.extend(Craft,
 		if (typeof localStorage != 'undefined')
 		{
 			key = 'Craft-'+Craft.siteUid+'.'+key;
-			localStorage[key] = JSON.stringify(value);
+
+			// localStorage might be filled all the way up.
+			// Especially likely if this is a private window in Safari 8+, where localStorage technically exists,
+			// but has a max size of 0 bytes.
+			try
+			{
+				localStorage[key] = JSON.stringify(value);
+			}
+			catch(e) {}
 		}
 	},
 
@@ -974,6 +1138,7 @@ $.extend(Craft,
 
 		var info = {
 			id:       $element.data('id'),
+			locale:   $element.data('locale'),
 			label:    $element.data('label'),
 			status:   $element.data('status'),
 			url:      $element.data('url'),
@@ -991,7 +1156,7 @@ $.extend(Craft,
 	 */
 	showElementEditor: function($element)
 	{
-		if ($element.data('editable') && !$element.hasClass('disabled') && !$element.hasClass('loading'))
+		if (Garnish.hasAttr($element, 'data-editable') && !$element.hasClass('disabled') && !$element.hasClass('loading'))
 		{
 			new Craft.ElementEditor($element);
 		}
@@ -1009,11 +1174,11 @@ $.extend($.fn,
 	{
 		if (Craft.orientation == 'ltr')
 		{
-			return this.animate({ left: pos }, duration, easing, complete);
+			return this.velocity({ left: pos }, duration, easing, complete);
 		}
 		else
 		{
-			return this.animate({ right: pos }, duration, easing, complete);
+			return this.velocity({ right: pos }, duration, easing, complete);
 		}
 	},
 
@@ -1021,11 +1186,11 @@ $.extend($.fn,
 	{
 		if (Craft.orientation == 'ltr')
 		{
-			return this.animate({ right: pos }, duration, easing, complete);
+			return this.velocity({ right: pos }, duration, easing, complete);
 		}
 		else
 		{
-			return this.animate({ left: pos }, duration, easing, complete);
+			return this.velocity({ left: pos }, duration, easing, complete);
 		}
 	},
 
@@ -1185,6 +1350,59 @@ $.extend($.fn,
 		});
 	},
 
+	formsubmit: function()
+	{
+		// Secondary form submit buttons
+		this.on('click', function(ev)
+		{
+			var $btn = $(ev.currentTarget);
+
+			if ($btn.attr('data-confirm'))
+			{
+				if (!confirm($btn.attr('data-confirm')))
+				{
+					return;
+				}
+			}
+
+			// Is this a menu item?
+			if ($btn.data('menu'))
+			{
+				var $form = $btn.data('menu').$trigger.closest('form');
+			}
+			else
+			{
+				var $form = $btn.closest('form');
+			}
+
+			if ($btn.attr('data-action'))
+			{
+				$('<input type="hidden" name="action"/>')
+					.val($btn.attr('data-action'))
+					.appendTo($form);
+			}
+
+			if ($btn.attr('data-redirect'))
+			{
+				$('<input type="hidden" name="redirect"/>')
+					.val($btn.attr('data-redirect'))
+					.appendTo($form);
+			}
+
+			if ($btn.attr('data-param'))
+			{
+				$('<input type="hidden"/>')
+					.attr({
+						name: $btn.attr('data-param'),
+						value: $btn.attr('data-value')
+					})
+					.appendTo($form);
+			}
+
+			$form.submit();
+		});
+	},
+
 	menubtn: function()
 	{
 		return this.each(function()
@@ -1211,6 +1429,10 @@ Garnish.$doc.ready(function()
  */
 Craft.BaseElementIndex = Garnish.Base.extend(
 {
+	// Properties
+	// =========================================================================
+
+	initialized: false,
 	elementType: null,
 
 	instanceState: null,
@@ -1220,12 +1442,29 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 	searchTimeout: null,
 	elementSelect: null,
 	sourceSelect: null,
+	structureTableSort: null,
+
+	isIndexBusy: false,
+
+	selectable: false,
+	multiSelect: false,
+	actions: null,
+	actionsHeadHtml: null,
+	actionsFootHtml: null,
+	showingActionTriggers: false,
+	_$triggers: null,
 
 	$container: null,
 	$main: null,
 	$scroller: null,
 	$toolbar: null,
+	$toolbarTableRow: null,
+	toolbarOffset: null,
+	$selectAllContainer: null,
+	$selectAllCheckbox: null,
 	$search: null,
+	searching: false,
+	$clearSearchBtn: null,
 	$mainSpinner: null,
 
 	$statusMenuBtn: null,
@@ -1236,6 +1475,13 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 	localeMenu: null,
 	locale: null,
 
+	$sortMenuBtn: null,
+	sortMenu: null,
+	$sortAttributesList: null,
+	$sortDirectionsList: null,
+	$scoreSortAttribute: null,
+	$structureSortAttribute: null,
+
 	$viewModeBtnTd: null,
 	$viewModeBtnContainer: null,
 	viewModeBtns: null,
@@ -1245,16 +1491,26 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 	$sidebar: null,
 	$sidebarButtonContainer: null,
 	showingSidebar: null,
-	$sources: null,
 	sourceKey: null,
 	sourceViewModes: null,
 	$source: null,
-	$sourceToggles: null,
 	$elements: null,
 	$table: null,
 	$elementContainer: null,
+	$checkboxes: null,
 
+	_totalVisible: null,
+	_morePending: false,
+	_totalVisiblePostStructureTableDraggee: null,
+	_morePendingPostStructureTableDraggee: false,
+	loadingMore: false,
 
+	// Public methods
+	// =========================================================================
+
+	/**
+	 * Constructor
+	 */
 	init: function(elementType, $container, settings)
 	{
 		this.elementType = elementType;
@@ -1281,15 +1537,16 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		// Find the DOM elements
 		this.$main = this.$container.find('.main');
 		this.$toolbar = this.$container.find('.toolbar:first');
-		this.$statusMenuBtn = this.$toolbar.find('.statusmenubtn:first');
-		this.$localeMenuBtn = this.$toolbar.find('.localemenubtn:first');
-		this.$search = this.$toolbar.find('.search:first input:first');
+		this.$toolbarTableRow = this.$toolbar.children('table').children('tbody').children('tr');
+		this.$statusMenuBtn = this.$toolbarTableRow.find('.statusmenubtn:first');
+		this.$localeMenuBtn = this.$toolbarTableRow.find('.localemenubtn:first');
+		this.$sortMenuBtn = this.$toolbarTableRow.find('.sortmenubtn:first');
+		this.$search = this.$toolbarTableRow.find('.search:first input:first');
+		this.$clearSearchBtn = this.$toolbarTableRow.find('.search:first > .clear');
 		this.$mainSpinner = this.$toolbar.find('.spinner:first');
 		this.$loadingMoreSpinner = this.$container.find('.spinner.loadingmore')
 		this.$sidebar = this.$container.find('.sidebar:first');
 		this.$sidebarButtonContainer = this.$sidebar.children('.buttons');
-		this.$sources = this.$sidebar.find('nav a');
-		this.$sourceToggles = this.$sidebar.find('.toggle');
 		this.$elements = this.$container.find('.elements:first');
 
 		if (!this.$sidebarButtonContainer.length)
@@ -1299,13 +1556,90 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 		this.showingSidebar = (this.$sidebar.length && !this.$sidebar.hasClass('hidden'));
 
-		this.$viewModeBtnTd = this.$toolbar.find('.viewbtns:first');
-		this.$viewModeBtnContainer = $('<div class="btngroup"/>').appendTo(this.$viewModeBtnTd);
+		this.$viewModeBtnTd = this.$toolbarTableRow.find('.viewbtns:first');
+		this.$viewModeBtnContainer = $('<div class="btngroup fullwidth"/>').appendTo(this.$viewModeBtnTd);
+
+		if (this.settings.context == 'index' && !Garnish.isMobileBrowser(true))
+		{
+			this.addListener(Garnish.$win, 'scroll resize', 'updateFixedToolbar');
+		}
+
+		// Initialize the sources
+		// ---------------------------------------------------------------------
+
+		var $sources = this._getSourcesInList(this.$sidebar.children('nav').children('ul'));
 
 		// No source, no party.
-		if (this.$sources.length == 0)
+		if ($sources.length == 0)
 		{
 			return;
+		}
+
+		// The source selector
+		this.sourceSelect = new Garnish.Select(this.$sidebar.find('nav'), {
+			multi:             false,
+			allowEmpty:        false,
+			vertical:          true,
+			onSelectionChange: $.proxy(this, 'onSourceSelectionChange')
+		});
+
+		this._initSources($sources);
+
+		// Initialize the locale menu button
+		// ---------------------------------------------------------------------
+
+		// Is there a locale menu?
+		if (this.$localeMenuBtn.length)
+		{
+			this.localeMenu = this.$localeMenuBtn.menubtn().data('menubtn').menu;
+
+			// Figure out the initial locale
+			var $option = this.localeMenu.$options.filter('.sel:first');
+
+			if (!$option.length)
+			{
+				$option = this.localeMenu.$options.first();
+			}
+
+			if ($option.length)
+			{
+				this.locale = $option.data('locale');
+			}
+			else
+			{
+				// No locale options -- they must not have any locale permissions
+				this.settings.criteria = { id: '0' };
+			}
+
+			this.localeMenu.on('optionselect', $.proxy(this, 'onLocaleChange'));
+
+			if (this.locale)
+			{
+				// Do we have a different locale stored in localStorage?
+				var storedLocale = Craft.getLocalStorage('BaseElementIndex.locale');
+
+				if (storedLocale && storedLocale != this.locale)
+				{
+					// Is that one available here?
+					var $storedLocaleOption = this.localeMenu.$options.filter('[data-locale="'+storedLocale+'"]:first');
+
+					if ($storedLocaleOption.length)
+					{
+						// Todo: switch this to localeMenu.selectOption($storedLocaleOption) once Menu is updated to support that
+						$storedLocaleOption.trigger('click');
+					}
+				}
+			}
+		}
+
+		// Is there a sort menu?
+		if (this.$sortMenuBtn.length)
+		{
+			this.sortMenu = this.$sortMenuBtn.menubtn().data('menubtn').menu;
+			this.$sortAttributesList = this.sortMenu.$container.children('.sort-attributes');
+			this.$sortDirectionsList = this.sortMenu.$container.children('.sort-directions');
+
+			this.sortMenu.on('optionselect', $.proxy(this, 'onSortChange'));
 		}
 
 		this.onAfterHtmlInit();
@@ -1340,26 +1674,9 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 			var $source = this.$sources.first();
 		}
 
-		this.selectSource($source);
-
 		// Load up the elements!
-		this.updateElements();
-
-		// Add some listeners
-		this.addListener(this.$sourceToggles, 'click', function(ev)
-		{
-			$(ev.currentTarget).parent().toggleClass('expanded');
-			this.$sidebar.trigger('resize');
-			ev.stopPropagation();
-		});
-
-		// The source selector
-		this.sourceSelect = new Garnish.Select(this.$sidebar.find('nav'), this.$sources, {
-			selectedClass:     'sel',
-			multi:             false,
-			vertical:          true,
-			onSelectionChange: $.proxy(this, 'onSourceSelectionChange')
-		});
+		this.initialized = true;
+		this.sourceSelect.selectItem($source);
 
 		// Status changes
 		if (this.$statusMenuBtn.length)
@@ -1368,15 +1685,17 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 			this.statusMenu.on('optionselect', $.proxy(this, 'onStatusChange'));
 		}
 
-		// Locale changes
-		if (this.$localeMenuBtn.length)
-		{
-			this.localeMenu = this.$localeMenuBtn.menubtn().data('menubtn').menu;
-			this.localeMenu.on('optionselect', $.proxy(this, 'onLocaleChange'));
-		}
-
 		this.addListener(this.$search, 'textchange', $.proxy(function()
 		{
+			if (!this.searching && this.$search.val())
+			{
+				this.onStartSearching();
+			}
+			else if (this.searching && !this.$search.val())
+			{
+				this.onStopSearching();
+			}
+
 			if (this.searchTimeout)
 			{
 				clearTimeout(this.searchTimeout);
@@ -1385,10 +1704,131 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 			this.searchTimeout = setTimeout($.proxy(this, 'updateElements'), 500);
 		}, this));
 
+		this.addListener(this.$clearSearchBtn, 'click', $.proxy(function()
+		{
+			this.$search.val('');
+
+			if (this.searchTimeout)
+			{
+				clearTimeout(this.searchTimeout);
+			}
+
+			if (!Garnish.isMobileBrowser(true))
+			{
+				this.$search.focus();
+			}
+
+			this.onStopSearching();
+
+			this.updateElements();
+
+		}, this))
+
 		// Auto-focus the Search box
 		if (!Garnish.isMobileBrowser(true))
 		{
 			this.$search.focus();
+		}
+	},
+
+	get $sources()
+	{
+		if (!this.sourceSelect)
+		{
+			return undefined;
+		}
+
+		return this.sourceSelect.$items;
+	},
+
+	get totalVisible()
+	{
+		if (this._isStructureTableDraggingLastElements())
+		{
+			return this._totalVisiblePostStructureTableDraggee;
+		}
+		else
+		{
+			return this._totalVisible;
+		}
+	},
+
+	get morePending()
+	{
+		if (this._isStructureTableDraggingLastElements())
+		{
+			return this._morePendingPostStructureTableDraggee;
+		}
+		else
+		{
+			return this._morePending;
+		}
+	},
+
+	updateFixedToolbar: function()
+	{
+		if (!this.toolbarOffset)
+		{
+			this.toolbarOffset = this.$toolbar.offset().top;
+
+			if (!this.toolbarOffset)
+			{
+				return;
+			}
+		}
+
+		this.updateFixedToolbar._scrollTop = Garnish.$win.scrollTop();
+
+		if (this.updateFixedToolbar._scrollTop > this.toolbarOffset - 7)
+		{
+			if (!this.$toolbar.hasClass('fixed'))
+			{
+				this.$elements.css('padding-top', (this.$toolbar.outerHeight() + 24));
+				this.$toolbar.addClass('fixed');
+			}
+
+			this.$toolbar.css('width', this.$main.width());
+		}
+		else
+		{
+			if (this.$toolbar.hasClass('fixed'))
+			{
+				this.$toolbar.removeClass('fixed');
+				this.$toolbar.css('width', '');
+				this.$elements.css('padding-top', '');
+			}
+		}
+	},
+
+	initSource: function($source)
+	{
+		this.sourceSelect.addItems($source);
+		this.initSourceToggle($source);
+	},
+
+	initSourceToggle: function($source)
+	{
+		var $toggle = this._getSourceToggle($source);
+
+		if ($toggle.length)
+		{
+			this.addListener($toggle, 'click', '_onToggleClick');
+		}
+	},
+
+	deinitSource: function($source)
+	{
+		this.sourceSelect.removeItems($source);
+		this.deinitSourceToggle($source);
+	},
+
+	deinitSourceToggle: function($source)
+	{
+		var $toggle = this._getSourceToggle($source);
+
+		if ($toggle.length)
+		{
+			this.removeListener($toggle, 'click');
 		}
 	},
 
@@ -1399,14 +1839,48 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 	onSourceSelectionChange: function()
 	{
-		var sourceElement = this.$sources.filter('.sel');
-		if (sourceElement.length == 0)
+		// If the selected source was just removed (maybe because its parent was collapsed),
+		// there won't be a selected source
+		if (!this.sourceSelect.totalSelected)
 		{
-			sourceElement = this.$sources.filter(':first');
+			this.sourceSelect.selectItem(this.$sources.first());
+			return;
 		}
 
-		this.selectSource(sourceElement);
-		this.updateElements();
+		if (this.selectSource(this.sourceSelect.$selectedItems))
+		{
+			this.updateElements();
+		}
+	},
+
+	onStartSearching: function()
+	{
+		// Show the clear button and add/select the Score sort option
+		this.$clearSearchBtn.removeClass('hidden');
+
+		if (!this.$scoreSortAttribute)
+		{
+			this.$scoreSortAttribute = $('<li><a data-attr="score">'+Craft.t('Score')+'</a></li>');
+			this.sortMenu.addOptions(this.$scoreSortAttribute.children());
+		}
+
+		this.$scoreSortAttribute.prependTo(this.$sortAttributesList);
+		this.setSortAttribute('score');
+		this.getSortAttributeOption('structure').addClass('disabled');
+
+		this.searching = true;
+	},
+
+	onStopSearching: function()
+	{
+		// Hide the clear button and Score sort option
+		this.$clearSearchBtn.addClass('hidden');
+
+		this.$scoreSortAttribute.detach();
+		this.getSortAttributeOption('structure').removeClass('disabled');
+		this.setStoredSortOptionsForSource();
+
+		this.searching = false;
 	},
 
 	setInstanceState: function(key, value)
@@ -1473,23 +1947,50 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		Craft.setLocalStorage(this.sourceStatesStorageKey, this.sourceStates);
 	},
 
+	/**
+	 * Returns the data that should be passed to the elementIndex/getElements controller action
+	 * when loading the first batch of elements.
+	 */
 	getControllerData: function()
 	{
-		return {
-			context:            this.settings.context,
-			elementType:        this.elementType,
-			criteria:           $.extend({ status: this.status, locale: this.locale }, this.settings.criteria),
-			disabledElementIds: this.settings.disabledElementIds,
-			source:             this.instanceState.selectedSource,
-			status:             this.status,
-			viewState:          this.getSelectedSourceState(),
-			search:             (this.$search ? this.$search.val() : null)
+		var data = {
+			context:             this.settings.context,
+			elementType:         this.elementType,
+			criteria:            $.extend({ status: this.status, locale: this.locale }, this.settings.criteria),
+			disabledElementIds:  this.settings.disabledElementIds,
+			source:              this.instanceState.selectedSource,
+			status:              this.status,
+			viewState:           this.getSelectedSourceState(),
+			search:              (this.$search ? this.$search.val() : null)
 		};
+
+		// Possible that the order/sort isn't entirely accurate if we're sorting by Score
+		data.viewState.order = this.getSelectedSortAttribute();
+		data.viewState.sort = this.getSelectedSortDirection();
+
+		if (
+			this.getSelectedSourceState('mode') == 'table' &&
+			this.getSelectedSortAttribute() == 'structure'
+		)
+		{
+			data.collapsedElementIds = this.instanceState.collapsedElementIds;
+		}
+
+		return data;
 	},
 
 	updateElements: function()
 	{
-		this.$mainSpinner.removeClass('hidden');
+		// Ignore if we're not fully initialized yet
+		if (!this.initialized)
+		{
+			return;
+		}
+
+		// Prep the UI
+		// -------------------------------------------------------------
+
+		this.setIndexBusy();
 		this.removeListener(this.$scroller, 'scroll');
 
 		if (this.getSelectedSourceState('mode') == 'table' && this.$table)
@@ -1497,119 +1998,414 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 			Craft.cp.$collapsibleTables = Craft.cp.$collapsibleTables.not(this.$table);
 		}
 
-		// Can't use structure view for search results
-		if (this.$search && this.$search.val())
-		{
-			if (this.getSelectedSourceState('mode') == 'structure')
-			{
-				this.selectViewMode('table', true);
-			}
-		}
-		else if (this.getSelectedSourceState('mode') == 'table' && !this.doesSourceHaveViewMode('table'))
-		{
-			this.selectViewMode(this.sourceViewModes[0].mode, true);
-		}
+		// Fetch the elements
+		// -------------------------------------------------------------
 
 		var data = this.getControllerData();
 
-		Craft.postActionRequest('elements/getElements', data, $.proxy(function(response, textStatus)
+		Craft.postActionRequest('elementIndex/getElements', data, $.proxy(function(response, textStatus)
 		{
-			this.$mainSpinner.addClass('hidden');
+			this.setIndexAvailable();
 
 			if (textStatus == 'success')
 			{
-				this.setNewElementDataHtml(response, false);
+				// Cleanup
+				// -------------------------------------------------------------
+
+				this._prepForNewElements();
+
+				// Selectable setup
+				// -------------------------------------------------------------
+
+				if (this.settings.context == 'index' && response.actions && response.actions.length)
+				{
+					this.actions = response.actions;
+					this.actionsHeadHtml = response.actionsHeadHtml;
+					this.actionsFootHtml = response.actionsFootHtml;
+				}
+				else
+				{
+					this.actions = this.actionsHeadHtml = this.actionsFootHtml = null;
+				}
+
+				this.selectable = (this.actions || this.settings.selectable);
+
+				// Update the view with the new container + elements HTML
+				// -------------------------------------------------------------
+
+				this.$elements.html(response.html);
+				this.$scroller.scrollTop(0);
+
+				if (this.getSelectedSourceState('mode') == 'table')
+				{
+					this.$table = this.$elements.find('table:first');
+					Craft.cp.$collapsibleTables = Craft.cp.$collapsibleTables.add(this.$table);
+				}
+
+				// Find the new container
+				this.$elementContainer = this.getElementContainer();
+
+				// Get the new elements
+				var $newElements = this.$elementContainer.children();
+
+				// Initialize the selector stuff and the structure table sorter
+				this._setupNewElements($newElements);
+
+				this._onUpdateElements(response, false, $newElements);
+
+				if (
+					this.getSelectedSourceState('mode') == 'table' &&
+					this.getSelectedSortAttribute() == 'structure'
+				)
+				{
+					// Listen for toggle clicks
+					this.addListener(this.$elementContainer, 'click', function(ev)
+					{
+						var $target = $(ev.target);
+
+						if ($target.hasClass('toggle'))
+						{
+							if (this._collapseElement($target) === false)
+							{
+								this._expandElement($target);
+							}
+						}
+					});
+				}
+
+				// Listen for double-clicks
+				if (this.settings.context == 'index')
+				{
+					this.addListener(this.$elementContainer, 'dblclick', function(ev)
+					{
+						var $target = $(ev.target);
+
+						if ($target.prop('nodeName') == 'A')
+						{
+							// Let the link do its thing
+							return;
+						}
+
+						if ($target.hasClass('element'))
+						{
+							var $element = $target;
+						}
+						else
+						{
+							var $element = $target.closest('.element');
+
+							if (!$element.length)
+							{
+								return;
+							}
+						}
+
+						if (Garnish.hasAttr($element, 'data-editable'))
+						{
+							new Craft.ElementEditor($element);
+						}
+					});
+				}
 			}
 
 		}, this));
 	},
 
-	setNewElementDataHtml: function(response, append)
+	showActionTriggers: function()
 	{
-		if (!append)
+		// Ignore if they're already shown
+		if (this.showingActionTriggers)
 		{
-			this.$elements.html(response.html);
-			this.$scroller.scrollTop(0);
+			return;
+		}
 
-			if (this.getSelectedSourceState('mode') == 'table')
-			{
-				var $headers = this.$elements.find('thead:first th');
-				this.addListener($headers, 'click', 'onSortChange');
+		// Hide any toolbar inputs
+		this.$toolbarTableRow.children().not(this.$selectAllContainer).addClass('hidden');
 
-				this.$table = this.$elements.find('table:first');
-				Craft.cp.$collapsibleTables = Craft.cp.$collapsibleTables.add(this.$table);
-			}
-
-			this.$elementContainer = this.getElementContainer();
+		if (!this._$triggers)
+		{
+			this._createTriggers();
 		}
 		else
 		{
-			this.$elementContainer.append(response.html);
+			this._$triggers.insertAfter(this.$selectAllContainer);
 		}
 
-		$('head').append(response.headHtml);
-		Garnish.$bod.append(response.footHtml);
+		this.showingActionTriggers = true;
+	},
 
-		// More?
-		if (response.more)
+	handleActionTriggerSubmit: function(ev)
+	{
+		ev.preventDefault();
+
+		var $form = $(ev.currentTarget);
+
+		// Make sure Craft.ElementActionTrigger isn't overriding this
+		if ($form.hasClass('disabled') || $form.data('custom-handler'))
 		{
-			this.totalVisible = response.totalVisible;
+			return;
+		}
 
-			this.addListener(this.$scroller, 'scroll', function()
+		var actionHandle = $form.data('action'),
+			params = Garnish.getPostData($form);
+
+		this.submitAction(actionHandle, params);
+	},
+
+	handleMenuActionTriggerSubmit: function(ev)
+	{
+		var $option = $(ev.option);
+
+		// Make sure Craft.ElementActionTrigger isn't overriding this
+		if ($option.hasClass('disabled') || $option.data('custom-handler'))
+		{
+			return;
+		}
+
+		var actionHandle = $option.data('action');
+		this.submitAction(actionHandle);
+	},
+
+	submitAction: function(actionHandle, params)
+	{
+		// Make sure something's selected
+		var totalSelected = this.elementSelect.totalSelected,
+			totalItems = this.elementSelect.$items.length;
+
+		if (totalSelected == 0)
+		{
+			return;
+		}
+
+		// Find the action
+		for (var i = 0; i < this.actions.length; i++)
+		{
+			if (this.actions[i].handle == actionHandle)
 			{
-				if (this.$scroller[0] == Garnish.$win[0])
-				{
-					var winHeight = Garnish.$win.innerHeight(),
-						winScrollTop = Garnish.$win.scrollTop(),
-						bodHeight = Garnish.$bod.height();
+				var action = this.actions[i];
+				break;
+			}
+		}
 
-					var loadMore = (winHeight + winScrollTop >= bodHeight);
+		if (!action || (action.confirm && !confirm(action.confirm)))
+		{
+			return;
+		}
+
+		// Get ready to submit
+		var data = $.extend(this.getControllerData(), params, {
+			elementAction: actionHandle,
+			elementIds:    this.getSelectedElementIds()
+		});
+
+		// Do it
+		this.setIndexBusy();
+
+		Craft.postActionRequest('elementIndex/performAction', data, $.proxy(function(response, textStatus)
+		{
+			this.setIndexAvailable();
+
+			if (textStatus == 'success')
+			{
+				if (response.success)
+				{
+					this._prepForNewElements();
+					this.$elementContainer.html('');
+					this.elementSelect = this.createElementSelect();
+
+					var $newElements = $(response.html).appendTo(this.$elementContainer);
+
+					// Initialize the selector stuff and the structure table sorter
+					this._setupNewElements($newElements);
+
+					// There may be less elements now if some had been lazy-loaded before. If that's the case and all of
+					// the elements were selected, we don't want to give the user the impression that all of the same
+					// elements are still selected.
+					if (totalItems <= 50 || totalSelected < totalItems)
+					{
+						for (var i = 0; i < data.elementIds.length; i++)
+						{
+							var $element = this.getElementById(data.elementIds[i]);
+
+							if ($element)
+							{
+								this.elementSelect.selectItem($element);
+							}
+						}
+					}
+
+					this._onUpdateElements(response, false, $newElements);
+
+					if (response.message)
+					{
+						Craft.cp.displayNotice(response.message);
+					}
+
+					// There may be a new background task that needs to be run
+					Craft.cp.runPendingTasks();
 				}
 				else
 				{
-					var containerScrollHeight = this.$scroller.prop('scrollHeight'),
-						containerScrollTop = this.$scroller.scrollTop(),
-						containerHeight = this.$scroller.outerHeight();
-
-					var loadMore = (containerScrollHeight - containerScrollTop == containerHeight);
-
+					Craft.cp.displayError(response.message);
 				}
-
-				if (loadMore)
-				{
-					this.$loadingMoreSpinner.removeClass('hidden');
-					this.removeListener(this.$scroller, 'scroll');
-
-					var data = this.getControllerData();
-					data.offset = this.totalVisible;
-
-					Craft.postActionRequest('elements/getElements', data, $.proxy(function(response, textStatus)
-					{
-						this.$loadingMoreSpinner.addClass('hidden');
-
-						if (textStatus == 'success')
-						{
-							this.setNewElementDataHtml(response, true);
-						}
-
-					}, this));
-				}
-			});
-		}
-
-		if (this.getSelectedSourceState('mode') == 'table')
-		{
-			Craft.cp.updateResponsiveTables();
-		}
-
-		this.onUpdateElements(append);
+			}
+		}, this));
 	},
 
+	hideActionTriggers: function()
+	{
+		// Ignore if there aren't any
+		if (!this.showingActionTriggers)
+		{
+			return;
+		}
+
+		this._$triggers.detach();
+
+		this.$toolbarTableRow.children().not(this.$selectAllContainer).removeClass('hidden');
+
+		this.showingActionTriggers = false;
+	},
+
+	updateActionTriggers: function()
+	{
+		// Do we have an action UI to update?
+		if (this.actions)
+		{
+			var totalSelected = this.elementSelect.totalSelected;
+
+			if (totalSelected != 0)
+			{
+				if (totalSelected == this.elementSelect.$items.length)
+				{
+					this.$selectAllCheckbox.removeClass('indeterminate');
+					this.$selectAllCheckbox.addClass('checked');
+				}
+				else
+				{
+					this.$selectAllCheckbox.addClass('indeterminate');
+					this.$selectAllCheckbox.removeClass('checked');
+				}
+
+				this.showActionTriggers();
+			}
+			else
+			{
+				this.$selectAllCheckbox.removeClass('indeterminate checked');
+				this.hideActionTriggers();
+			}
+		}
+	},
+
+	/**
+	 * Checks if the user has reached the bottom of the scroll area, and if so, loads the next batch of elemets.
+	 */
+	maybeLoadMore: function()
+	{
+		if (this.canLoadMore())
+		{
+			this.loadMore();
+		}
+	},
+
+	/**
+	 * Returns whether the user has reached the bottom of the scroll area.
+	 */
+	canLoadMore: function()
+	{
+		if (!this.morePending)
+		{
+			return false;
+		}
+
+		// Check if the user has reached the bottom of the scroll area
+		if (this.$scroller[0] == Garnish.$win[0])
+		{
+			var winHeight = Garnish.$win.innerHeight(),
+				winScrollTop = Garnish.$win.scrollTop(),
+				bodHeight = Garnish.$bod.height();
+
+			return (winHeight + winScrollTop >= bodHeight);
+		}
+		else
+		{
+			var containerScrollHeight = this.$scroller.prop('scrollHeight'),
+				containerScrollTop = this.$scroller.scrollTop(),
+				containerHeight = this.$scroller.outerHeight();
+
+			return (containerScrollHeight - containerScrollTop <= containerHeight + 15);
+		}
+	},
+
+	/**
+	 * Loads the next batch of elements.
+	 */
+	loadMore: function()
+	{
+		if (!this.morePending || this.loadingMore)
+		{
+			return;
+		}
+
+		this.loadingMore = true;
+		this.$loadingMoreSpinner.removeClass('hidden');
+		this.removeListener(this.$scroller, 'scroll');
+
+		var data = this.getLoadMoreData();
+
+		Craft.postActionRequest('elementIndex/getMoreElements', data, $.proxy(function(response, textStatus)
+		{
+			this.loadingMore = false;
+			this.$loadingMoreSpinner.addClass('hidden');
+
+			if (textStatus == 'success')
+			{
+				var $newElements = $(response.html).appendTo(this.$elementContainer);
+
+				if (this.actions || this.settings.selectable)
+				{
+					this.elementSelect.addItems($newElements.filter(':not(.disabled)'));
+					this.updateActionTriggers();
+				}
+
+				if (this.structureTableSort)
+				{
+					this.structureTableSort.addItems($newElements);
+				}
+
+				this._onUpdateElements(response, true, $newElements);
+			}
+
+		}, this));
+	},
+
+	/**
+	 * Returns the data that should be passed to the elementIndex/getMoreElements controller action
+	 * when loading a subsequent batch of elements.
+	 */
+	getLoadMoreData: function()
+	{
+		var data = this.getControllerData();
+		data.offset = this.totalVisible;
+
+		// If we are dragging the last elements on the page,
+		// tell the controller to only load elements positioned after the draggee.
+		if (this._isStructureTableDraggingLastElements())
+		{
+			data.criteria.positionedAfter = this.structureTableSort.$targetItem.data('id');
+		}
+
+		return data;
+	},
+
+	/**
+	 * Returns the element container.
+	 */
 	getElementContainer: function()
 	{
 		if (this.getSelectedSourceState('mode') == 'table')
 		{
-			return this.$table.find('tbody:first');
+			return this.$table.children('tbody:first');
 		}
 		else
 		{
@@ -1617,9 +2413,34 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		}
 	},
 
-	onUpdateElements: function(append)
+	createElementSelect: function()
 	{
-		this.settings.onUpdateElements(append);
+		return new Garnish.Select(this.$elementContainer, {
+			multi:             (this.actions || this.settings.multiSelect),
+			vertical:          (this.getSelectedSourceState('mode') != 'thumbs'),
+			handle:            (this.settings.context == 'index' ? '.checkbox, .element' : null),
+			filter:            ':not(a):not(.toggle)',
+			checkboxMode:      (this.settings.context == 'index' && this.actions),
+			onSelectionChange: $.proxy(this, 'onSelectionChange')
+		});
+	},
+
+	getSelectedElementIds: function()
+	{
+		var $selectedItems = this.elementSelect.$selectedItems,
+			ids = [];
+
+		for (var i = 0; i < $selectedItems.length; i++)
+		{
+			ids.push($selectedItems.eq(i).data('id'));
+		}
+
+		return ids;
+	},
+
+	onUpdateElements: function(append, $newElements)
+	{
+		this.settings.onUpdateElements(append, $newElements);
 	},
 
 	onStatusChange: function(ev)
@@ -1639,30 +2460,103 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		this.$localeMenuBtn.html($option.html());
 
 		this.locale = $option.data('locale');
-		this.updateElements();
+
+		if (this.initialized)
+		{
+			// Remember this locale for later
+			Craft.setLocalStorage('BaseElementIndex.locale', this.locale);
+
+			// Update the elements
+			this.updateElements();
+		}
+	},
+
+	getSortAttributeOption: function(attr)
+	{
+		return this.$sortAttributesList.find('a[data-attr="'+attr+'"]:first');
+	},
+
+	getSelectedSortAttribute: function()
+	{
+		return this.$sortAttributesList.find('a.sel:first').data('attr');
+	},
+
+	setSortAttribute: function(attr)
+	{
+		// Find the option (and make sure it actually exists)
+		var $option = this.getSortAttributeOption(attr);
+
+		if ($option.length)
+		{
+			this.$sortAttributesList.find('a.sel').removeClass('sel');
+			$option.addClass('sel');
+
+			var label = $option.text();
+			this.$sortMenuBtn.attr('title', Craft.t('Sort by {attribute}', { attribute: label }));
+			this.$sortMenuBtn.text(label);
+
+			this.setSortDirection('asc');
+
+			if (attr == 'score' || attr == 'structure')
+			{
+				this.$sortDirectionsList.find('a').addClass('disabled');
+			}
+			else
+			{
+				this.$sortDirectionsList.find('a').removeClass('disabled');
+			}
+		}
+	},
+
+	getSortDirectionOption: function(dir)
+	{
+		return this.$sortDirectionsList.find('a[data-dir='+dir+']:first');
+	},
+
+	getSelectedSortDirection: function()
+	{
+		return this.$sortDirectionsList.find('a.sel:first').data('dir');
+	},
+
+	setSortDirection: function(dir)
+	{
+		if (dir != 'desc')
+		{
+			dir = 'asc';
+		}
+
+		this.$sortMenuBtn.attr('data-icon', dir);
+		this.$sortDirectionsList.find('a.sel').removeClass('sel');
+		this.getSortDirectionOption(dir).addClass('sel');
 	},
 
 	onSortChange: function(ev)
 	{
-		var $th = $(ev.currentTarget),
-			attribute = $th.attr('data-attribute');
+		var $option = $(ev.selectedOption);
 
-		if (this.getSelectedSourceState('order') == attribute)
+		if ($option.hasClass('disabled') || $option.hasClass('sel'))
 		{
-			if (this.getSelectedSourceState('sort') == 'asc')
-			{
-				this.setSelecetedSourceState('sort', 'desc');
-			}
-			else
-			{
-				this.setSelecetedSourceState('sort', 'asc');
-			}
+			return;
+		}
+
+		// Is this an attribute or a direction?
+		if ($option.parent().parent().is(this.$sortAttributesList))
+		{
+			this.setSortAttribute($option.data('attr'));
 		}
 		else
 		{
+			this.setSortDirection($option.data('dir'));
+		}
+
+		// Save it to localStorage (unless we're sorting by score)
+		var attr = this.getSelectedSortAttribute();
+
+		if (attr != 'score')
+		{
 			this.setSelecetedSourceState({
-				order: attribute,
-				sort: 'asc'
+				order: attr,
+				sort: this.getSelectedSortDirection()
 			});
 		}
 
@@ -1671,11 +2565,11 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 	getSourceByKey: function(key)
 	{
-		for (var i = 0; i < this.$sources.length; i++)
+		if (this.$sources)
 		{
-			var $source = $(this.$sources[i]);
+			var $source = this.$sources.filter('[data-key="'+key+'"]:first');
 
-			if ($source.data('key') == key)
+			if ($source.length)
 			{
 				return $source;
 			}
@@ -1684,28 +2578,51 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 	selectSource: function($source)
 	{
-		if (this.$source == $source)
+		if (this.$source && this.$source[0] && this.$source[0] == $source[0])
 		{
-			return;
+			return false;
 		}
 
-		if (this.$source)
+		if ($source[0] != this.sourceSelect.$selectedItems[0])
 		{
-			this.$source.removeClass('sel');
+			this.sourceSelect.selectItem($source);
 		}
 
+		this.$source = $source;
 		this.sourceKey = $source.data('key');
-		this.$source = $source.addClass('sel');
 		this.setInstanceState('selectedSource', this.sourceKey);
 
-		if (this.$search)
+		if (this.searching)
 		{
 			// Clear the search value without triggering the textchange event
 			this.$search.data('textchangeValue', '');
 			this.$search.val('');
+			this.onStopSearching();
 		}
 
+		// Sort menu
+		// ----------------------------------------------------------------------
+
+		// Does this source have a structure?
+		if (Garnish.hasAttr(this.$source, 'data-has-structure'))
+		{
+			if (!this.$structureSortAttribute)
+			{
+				this.$structureSortAttribute = $('<li><a data-attr="structure">'+Craft.t('Structure')+'</a></li>');
+				this.sortMenu.addOptions(this.$structureSortAttribute.children());
+			}
+
+			this.$structureSortAttribute.prependTo(this.$sortAttributesList);
+		}
+		else if (this.$structureSortAttribute)
+		{
+			this.$structureSortAttribute.removeClass('sel').detach();
+		}
+
+		this.setStoredSortOptionsForSource();
+
 		// View mode buttons
+		// ----------------------------------------------------------------------
 
 		// Clear out any previous view mode data
 		this.$viewModeBtnContainer.empty();
@@ -1749,13 +2666,8 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 		if (!viewMode || !this.doesSourceHaveViewMode(viewMode))
 		{
-			// Default to structure view if the source has it
-			if (this.$source.data('has-structure'))
-			{
-				viewMode = 'structure';
-			}
-			// Otherwise try to keep using the current view mode
-			else if (this.viewMode && this.doesSourceHaveViewMode(this.viewMode))
+			// Try to keep using the current view mode
+			if (this.viewMode && this.doesSourceHaveViewMode(this.viewMode))
 			{
 				viewMode = this.viewMode;
 			}
@@ -1769,6 +2681,44 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		this.selectViewMode(viewMode);
 
 		this.onSelectSource();
+
+		return true;
+	},
+
+	setStoredSortOptionsForSource: function()
+	{
+		// Default to whatever's first
+		this.setSortAttribute();
+		this.setSortDirection('asc');
+
+		var sortAttr = this.getSelectedSourceState('order'),
+			sortDir = this.getSelectedSourceState('sort');
+
+		if (!sortAttr)
+		{
+			// Get the default
+			sortAttr = this.getDefaultSort();
+
+			if (Garnish.isArray(sortAttr))
+			{
+				sortDir = sortAttr[1];
+				sortAttr = sortAttr[0];
+			}
+		}
+
+		if (sortDir != 'asc' && sortDir != 'desc')
+		{
+			sortDir = 'asc';
+		}
+
+		this.setSortAttribute(sortAttr);
+		this.setSortDirection(sortDir);
+	},
+
+	getDefaultSort: function()
+	{
+		// Default to whatever's first
+		return [this.$sortAttributesList.find('a:first').data('attr'), 'asc'];
 	},
 
 	getViewModesForSource: function()
@@ -1777,12 +2727,7 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 			{ mode: 'table', title: Craft.t('Display in a table'), icon: 'list' }
 		];
 
-		if (this.$source.data('has-structure'))
-		{
-			viewModes.push({ mode: 'structure', title: Craft.t('Display hierarchically'), icon: 'structure' });
-		}
-
-		if (this.$source.data('has-thumbs'))
+		if (Garnish.hasAttr(this.$source, 'data-has-thumbs'))
 		{
 			viewModes.push({ mode: 'thumbs', title: Craft.t('Display as thumbnails'), icon: 'grid' });
 		}
@@ -1798,6 +2743,12 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 	onAfterHtmlInit: function()
 	{
 		this.settings.onAfterHtmlInit()
+	},
+
+	onSelectionChange: function()
+	{
+		this.updateActionTriggers();
+		this.settings.onSelectionChange();
 	},
 
 	doesSourceHaveViewMode: function(viewMode)
@@ -1877,7 +2828,7 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 
 	disableElements: function($elements)
 	{
-		$elements.removeClass('sel').addClass('disabled').parent().removeClass('sel');
+		$elements.removeClass('sel').addClass('disabled');
 
 		for (var i = 0; i < $elements.length; i++)
 		{
@@ -1933,11 +2884,6 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		}
 	},
 
-	setElementSelect: function(obj)
-	{
-		this.elementSelect = obj;
-	},
-
 	addButton: function($button)
 	{
 		if (this.showingSidebar)
@@ -1946,7 +2892,7 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 		}
 		else
 		{
-			$('<td class="thin"/>').prependTo(this.$toolbar.find('tr:first')).append($button);
+			$('<td class="thin"/>').prependTo(this.$toolbarTableRow).append($button);
 		}
 	},
 
@@ -1965,23 +2911,503 @@ Craft.BaseElementIndex = Garnish.Base.extend(
 	{
 		this.$mainSpinner.removeClass('hidden');
 		this.isIndexBusy = true;
-		this.$elements.fadeTo('fast', 0.5);
 	},
 
 	setIndexAvailable: function()
 	{
 		this.$mainSpinner.addClass('hidden');
 		this.isIndexBusy = false;
-		this.$elements.fadeTo('fast', 1);
+	},
+
+	disable: function()
+	{
+		this.sourceSelect.disable();
+
+		if (this.elementSelect)
+		{
+			this.elementSelect.disable();
+		}
+
+		this.base();
+	},
+
+	enable: function()
+	{
+		this.sourceSelect.enable();
+
+		if (this.elementSelect)
+		{
+			this.elementSelect.enable();
+		}
+
+		this.base();
+	},
+
+	// Private methods
+	// =========================================================================
+
+	_getSourcesInList: function($list)
+	{
+		return $list.children('li').children('a');
+	},
+
+	_getChildSources: function($source)
+	{
+		var $list = $source.siblings('ul');
+		return this._getSourcesInList($list);
+	},
+
+	_getSourceToggle: function($source)
+	{
+		return $source.siblings('.toggle');
+	},
+
+	_initSources: function($sources)
+	{
+		for (var i = 0; i < $sources.length; i++)
+		{
+			this.initSource($($sources[i]));
+		}
+	},
+
+	_deinitSources: function($sources)
+	{
+		for (var i = 0; i < $sources.length; i++)
+		{
+			this.deinitSource($($sources[i]));
+		}
+	},
+
+	_onToggleClick: function(ev)
+	{
+		this._toggleSource($(ev.currentTarget).prev('a'));
+		ev.stopPropagation();
+	},
+
+	_toggleSource: function($source)
+	{
+		if ($source.parent('li').hasClass('expanded'))
+		{
+			this._collapseSource($source);
+		}
+		else
+		{
+			this._expandSource($source);
+		}
+	},
+
+	_expandSource: function($source)
+	{
+		$source.parent('li').addClass('expanded');
+
+		this.$sidebar.trigger('resize');
+
+		var $childSources = this._getChildSources($source);
+		this._initSources($childSources);
+	},
+
+	_collapseSource: function($source)
+	{
+		$source.parent('li').removeClass('expanded');
+
+		this.$sidebar.trigger('resize');
+
+		var $childSources = this._getChildSources($source);
+		this._deinitSources($childSources);
+	},
+
+	_prepForNewElements: function()
+	{
+		if (this.actions)
+		{
+			// Get rid of the old action triggers regardless of whether the new batch has actions or not
+			this.hideActionTriggers();
+			this._$triggers = null;
+		}
+
+		// Reset the element select
+		if (this.elementSelect)
+		{
+			this.elementSelect.destroy();
+			delete this.elementSelect;
+		}
+
+		if (this.$selectAllContainer)
+		{
+			// Git rid of the old select all button
+			this.$selectAllContainer.detach();
+		}
+	},
+
+	_setupNewElements: function($newElements)
+	{
+		if (this.selectable)
+		{
+			// Initialize the element selector
+			this.elementSelect = this.createElementSelect();
+			this.elementSelect.addItems($newElements.filter(':not(.disabled)'));
+
+			if (this.actions)
+			{
+				// First time?
+				if (!this.$selectAllContainer)
+				{
+					// Create the select all button
+					this.$selectAllContainer = $('<td class="selectallcontainer thin"/>');
+					this.$selectAllBtn = $('<div class="btn"/>').appendTo(this.$selectAllContainer);
+					this.$selectAllCheckbox = $('<div class="checkbox"/>').appendTo(this.$selectAllBtn);
+
+					this.addListener(this.$selectAllBtn, 'click', function()
+					{
+						if (this.elementSelect.totalSelected == 0)
+						{
+							this.elementSelect.selectAll();
+						}
+						else
+						{
+							this.elementSelect.deselectAll();
+						}
+					});
+				}
+				else
+				{
+					// Reset the select all button
+					this.$selectAllCheckbox.removeClass('indeterminate checked');
+				}
+
+				// Place the select all button at the beginning of the toolbar
+				this.$selectAllContainer.prependTo(this.$toolbarTableRow);
+			}
+		}
+
+		// StructureTableSorter setup
+		// -------------------------------------------------------------
+
+		if (
+			this.settings.context == 'index' &&
+			this.getSelectedSourceState('mode') == 'table' &&
+			this.getSelectedSortAttribute() == 'structure' &&
+			Garnish.hasAttr(this.$table, 'data-structure-id')
+		)
+		{
+			// Create the sorter
+			this.structureTableSort = new Craft.StructureTableSorter(this, $newElements, {
+				onSortChange: $.proxy(this, '_onStructureTableSortChange')
+			});
+		}
+		else
+		{
+			this.structureTableSort = null;
+		}
+	},
+
+	_onUpdateElements: function(response, append, $newElements)
+	{
+		Craft.appendHeadHtml(response.headHtml);
+		Craft.appendFootHtml(response.footHtml);
+
+		if (this._isStructureTableDraggingLastElements())
+		{
+			this._totalVisiblePostStructureTableDraggee = response.totalVisible;
+			this._morePendingPostStructureTableDraggee = response.more;
+		}
+		else
+		{
+			this._totalVisible = response.totalVisible;
+			this._morePending = this._morePendingPostStructureTableDraggee = response.more;
+		}
+
+		if (this.morePending)
+		{
+			// Is there room to load more right now?
+			if (this.canLoadMore())
+			{
+				this.loadMore();
+			}
+			else
+			{
+				this.addListener(this.$scroller, 'scroll', 'maybeLoadMore');
+			}
+		}
+
+		if (this.getSelectedSourceState('mode') == 'table')
+		{
+			Craft.cp.updateResponsiveTables();
+		}
+
+		this.onUpdateElements(append, $newElements);
+	},
+
+	_collapseElement: function($toggle, force)
+	{
+		if (!force && !$toggle.hasClass('expanded'))
+		{
+			return false;
+		}
+
+		$toggle.removeClass('expanded');
+
+		// Find and remove the descendant rows
+		var $row = $toggle.parent().parent(),
+			id = $row.data('id'),
+			level = $row.data('level'),
+			$nextRow = $row.next();
+
+		while ($nextRow.length)
+		{
+			if (!Garnish.hasAttr($nextRow, 'data-spinnerrow'))
+			{
+				if ($nextRow.data('level') <= level)
+				{
+					break;
+				}
+
+				if (this.elementSelect)
+				{
+					this.elementSelect.removeItems($nextRow);
+				}
+
+				if (this.structureTableSort)
+				{
+					this.structureTableSort.removeItems($nextRow)
+				}
+
+				this._totalVisible--;
+			}
+
+			var $nextNextRow = $nextRow.next();
+			$nextRow.remove();
+			$nextRow = $nextNextRow;
+		}
+
+		// Remember that this row should be collapsed
+		if (!this.instanceState.collapsedElementIds)
+		{
+			this.instanceState.collapsedElementIds = [];
+		}
+
+		this.instanceState.collapsedElementIds.push(id);
+		this.setInstanceState('collapsedElementIds', this.instanceState.collapsedElementIds);
+
+		// Bottom of the index might be viewable now
+		this.maybeLoadMore();
+	},
+
+	_expandElement: function($toggle, force)
+	{
+		if (!force && $toggle.hasClass('expanded'))
+		{
+			return false;
+		}
+
+		$toggle.addClass('expanded');
+
+		// Remove this element from our list of collapsed elements
+		if (this.instanceState.collapsedElementIds)
+		{
+			var $row = $toggle.parent().parent(),
+				id = $row.data('id'),
+				index = $.inArray(id, this.instanceState.collapsedElementIds);
+
+			if (index != -1)
+			{
+				this.instanceState.collapsedElementIds.splice(index, 1);
+				this.setInstanceState('collapsedElementIds', this.instanceState.collapsedElementIds);
+
+				// Add a temporary row
+				var $spinnerRow = this._createSpinnerRowAfter($row);
+
+				// Update the elements
+				var data = this.getControllerData();
+				data.criteria.descendantOf = id;
+
+				Craft.postActionRequest('elementIndex/getMoreElements', data, $.proxy(function(response, textStatus)
+				{
+					// Do we even care about this anymore?
+					if (!$spinnerRow.parent().length)
+					{
+						return;
+					}
+
+					if (textStatus == 'success')
+					{
+						// Are there more descendants we didn't get in this batch?
+						if (response.more)
+						{
+							// Remove all the elements after it
+							var $nextRows = $spinnerRow.nextAll();
+
+							if (this.elementSelect)
+							{
+								this.elementSelect.removeItems($nextRows);
+							}
+
+							if (this.structureTableSort)
+							{
+								this.structureTableSort.removeItems($nextRows)
+							}
+
+							$nextRows.remove();
+							this._totalVisible -= $nextRows.length;
+						}
+						else
+						{
+							// Maintain the current 'more' status so
+							response.more = this._morePending;
+						}
+
+						var $newElements = $(response.html);
+						$spinnerRow.replaceWith($newElements);
+
+						if (this.actions || this.settings.selectable)
+						{
+							this.elementSelect.addItems($newElements.filter(':not(.disabled)'));
+							this.updateActionTriggers();
+						}
+
+						if (this.structureTableSort)
+						{
+							this.structureTableSort.addItems($newElements);
+						}
+
+						// Tweak response.totalVisible to account for the elements that come before them
+						response.totalVisible += this._totalVisible;
+
+						this._onUpdateElements(response, true, $newElements);
+					}
+
+				}, this));
+			}
+		}
+	},
+
+	_createSpinnerRowAfter: function($row)
+	{
+		return $(
+			'<tr data-spinnerrow>' +
+				'<td class="centeralign" colspan="'+$row.children().length+'">' +
+					'<div class="spinner"/>' +
+				'</td>' +
+			'</tr>'
+		).insertAfter($row);
+	},
+
+	_isStructureTableDraggingLastElements: function()
+	{
+		return (this.structureTableSort && this.structureTableSort.dragging && this.structureTableSort.draggingLastElements);
+	},
+
+	_createTriggers: function()
+	{
+		var triggers = [],
+			safeMenuActions = [],
+			destructiveMenuActions = [];
+
+		for (var i = 0; i < this.actions.length; i++)
+		{
+			var action = this.actions[i];
+
+			if (action.trigger)
+			{
+				var $form = $('<form id="'+action.handle+'-actiontrigger"/>')
+					.data('action', action.handle)
+					.append(action.trigger);
+
+				this.addListener($form, 'submit', 'handleActionTriggerSubmit');
+				triggers.push($form);
+			}
+			else
+			{
+				if (!action.destructive)
+				{
+					safeMenuActions.push(action);
+				}
+				else
+				{
+					destructiveMenuActions.push(action);
+				}
+			}
+		}
+
+		if (safeMenuActions.length || destructiveMenuActions.length)
+		{
+			var $menuTrigger = $('<form/>'),
+				$btn = $('<div class="btn menubtn" data-icon="settings" title="'+Craft.t('Actions')+'"/>').appendTo($menuTrigger),
+				$menu = $('<ul class="menu"/>').appendTo($menuTrigger),
+				$safeList = this._createMenuTriggerList(safeMenuActions),
+				$destructiveList = this._createMenuTriggerList(destructiveMenuActions);
+
+			if ($safeList)
+			{
+				$safeList.appendTo($menu);
+			}
+
+			if ($safeList && $destructiveList)
+			{
+				$('<hr/>').appendTo($menu);
+			}
+
+			if ($destructiveList)
+			{
+				$destructiveList.appendTo($menu);
+			}
+
+			triggers.push($menuTrigger);
+		}
+
+		// Add a filler TD
+		triggers.push('');
+
+		this._$triggers = $();
+
+		for (var i = 0; i < triggers.length; i++)
+		{
+			var $td = $('<td class="'+(i < triggers.length - 1 ? 'thin' : '')+'"/>').append(triggers[i]);
+			this._$triggers = this._$triggers.add($td);
+		}
+
+		this._$triggers.insertAfter(this.$selectAllContainer);
+		Craft.appendHeadHtml(this.actionsHeadHtml);
+		Craft.appendFootHtml(this.actionsFootHtml)
+
+		Craft.initUiElements(this._$triggers);
+
+		if ($btn)
+		{
+			$btn.data('menubtn').on('optionSelect', $.proxy(this, 'handleMenuActionTriggerSubmit'));
+		}
+	},
+
+	_createMenuTriggerList: function(actions)
+	{
+		if (actions && actions.length)
+		{
+			var $ul = $('<ul/>');
+
+			for (var i = 0; i < actions.length; i++)
+			{
+				var handle = actions[i].handle;
+				$('<li><a id="'+handle+'-actiontrigger" data-action="'+handle+'">'+actions[i].name+'</a></li>').appendTo($ul);
+			}
+
+			return $ul;
+		}
 	}
 },
+
+// Static Properties
+// =============================================================================
+
 {
 	defaults: {
 		context: 'index',
 		storageKey: null,
 		criteria: null,
 		disabledElementIds: [],
+		selectable: false,
+		multiSelect: false,
 		onUpdateElements: $.noop,
+		onSelectionChange: $.noop,
 		onEnableElements: $.noop,
 		onDisableElements: $.noop,
 		onSelectSource: $.noop,
@@ -1995,15 +3421,6 @@ Craft.BaseElementIndex = Garnish.Base.extend(
  */
 Craft.BaseElementSelectInput = Garnish.Base.extend(
 {
-	id: null,
-	name: null,
-	elementType: null,
-	sources: null,
-	criteria: null,
-	sourceElementId: null,
-	limit: null,
-	modalStorageKey: null,
-
 	elementSelect: null,
 	elementSort: null,
 	modal: null,
@@ -2013,61 +3430,81 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 	$elements: null,
 	$addElementBtn: null,
 
-	selectable: true,
-	sortable: true,
+	_initialized: false,
 
-	init: function(id, name, elementType, sources, criteria, sourceElementId, limit, modalStorageKey)
+	init: function(settings)
 	{
-		this.id = id;
-		this.name = name;
-		this.elementType = elementType;
-		this.sources = sources;
-		this.criteria = criteria;
-		this.sourceElementId = sourceElementId;
-		this.limit = limit;
+		// Normalize the settings and set them
+		// ---------------------------------------------------------------------
 
-		if (modalStorageKey)
+		// Are they still passing in a bunch of arguments?
+		if (!$.isPlainObject(settings))
 		{
-			this.modalStorageKey = 'BaseElementSelectInput.'+modalStorageKey;
+			// Loop through all of the old arguments and apply them to the settings
+			var normalizedSettings = {},
+				args = ['id', 'name', 'elementType', 'sources', 'criteria', 'sourceElementId', 'limit', 'modalStorageKey', 'fieldId'];
+
+			for (var i = 0; i < args.length; i++)
+			{
+				if (typeof arguments[i] != typeof undefined)
+				{
+					normalizedSettings[args[i]] = arguments[i];
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			settings = normalizedSettings;
+		}
+
+		this.setSettings(settings, Craft.BaseElementSelectInput.defaults);
+
+		// Apply the storage key prefix
+		if (this.settings.modalStorageKey)
+		{
+			this.modalStorageKey = 'BaseElementSelectInput.'+this.settings.modalStorageKey;
+		}
+
+		// No reason for this to be sortable if we're only allowing 1 selection
+		if (this.settings.limit == 1)
+		{
+			this.settings.sortable = false;
 		}
 
 		this.$container = this.getContainer();
 		this.$elementsContainer = this.getElementsContainer();
-		this.$elements = this.getElements();
 		this.$addElementBtn = this.getAddElementsBtn();
 
-		this.updateAddElementsBtn();
-
-		if (this.selectable)
+		if (this.$addElementBtn && this.settings.limit == 1)
 		{
-			this.elementSelect = new Garnish.Select(this.$elements, {
-				multi: true,
-				filter: ':not(.delete)'
-			});
+			this.$addElementBtn
+				.css('position', 'absolute')
+				.css('top', 0)
+				.css(Craft.left, 0);
 		}
 
-		if (this.sortable)
+		this.initElementSelect();
+		this.initElementSort();
+		this.resetElements();
+
+		if (this.$addElementBtn)
 		{
-			this.elementSort = new Garnish.DragSort({
-				container: this.$elementsContainer,
-				filter: (this.selectable ? $.proxy(function() {
-					return this.elementSelect.getSelectedItems();
-				}, this) : null),
-				caboose: $('<div class="caboose"/>'),
-				onSortChange: (this.selectable ? $.proxy(function() {
-					this.elementSelect.resetItemOrder();
-				}, this) : null)
-			});
+			this.addListener(this.$addElementBtn, 'activate', 'showModal');
 		}
 
-		this.initElements(this.$elements);
+		this._initialized = true;
+	},
 
-		this.addListener(this.$addElementBtn, 'activate', 'showModal');
+	get totalSelected()
+	{
+		return this.$elements.length;
 	},
 
 	getContainer: function()
 	{
-		return $('#'+this.id);
+		return $('#'+this.settings.id);
 	},
 
 	getElementsContainer: function()
@@ -2085,9 +3522,49 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 		return this.$container.children('.btn.add');
 	},
 
+	initElementSelect: function()
+	{
+		if (this.settings.selectable)
+		{
+			this.elementSelect = new Garnish.Select({
+				multi: this.settings.sortable,
+				filter: ':not(.delete)'
+			});
+		}
+	},
+
+	initElementSort: function()
+	{
+		if (this.settings.sortable)
+		{
+			this.elementSort = new Garnish.DragSort({
+				container: this.$elementsContainer,
+				filter: (this.settings.selectable ? $.proxy(function()
+				{
+					// Only return all the selected items if the target item is selected
+					if (this.elementSort.$targetItem.hasClass('sel'))
+					{
+						return this.elementSelect.getSelectedItems();
+					}
+					else
+					{
+						return this.elementSort.$targetItem;
+					}
+				}, this) : null),
+				ignoreHandleSelector: '.delete',
+				collapseDraggees: true,
+				magnetStrength: 4,
+				helperLagBase: 1.5,
+				onSortChange: (this.settings.selectable ? $.proxy(function() {
+					this.elementSelect.resetItemOrder();
+				}, this) : null)
+			});
+		}
+	},
+
 	canAddMoreElements: function()
 	{
-		return (!this.limit || this.$elements.length < this.limit);
+		return (!this.settings.limit || this.$elements.length < this.settings.limit);
 	},
 
 	updateAddElementsBtn: function()
@@ -2104,24 +3581,68 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 
 	disableAddElementsBtn: function()
 	{
-		this.$addElementBtn.addClass('disabled');
+		if (this.$addElementBtn && !this.$addElementBtn.hasClass('disabled'))
+		{
+			this.$addElementBtn.addClass('disabled');
+
+			if (this.settings.limit == 1)
+			{
+				if (this._initialized)
+				{
+					this.$addElementBtn.velocity('fadeOut', Craft.BaseElementSelectInput.ADD_FX_DURATION);
+				}
+				else
+				{
+					this.$addElementBtn.hide();
+				}
+			}
+		}
 	},
 
 	enableAddElementsBtn: function()
 	{
-		this.$addElementBtn.removeClass('disabled');
+		if (this.$addElementBtn && this.$addElementBtn.hasClass('disabled'))
+		{
+			this.$addElementBtn.removeClass('disabled');
+
+			if (this.settings.limit == 1)
+			{
+				if (this._initialized)
+				{
+					this.$addElementBtn.velocity('fadeIn', Craft.BaseElementSelectInput.REMOVE_FX_DURATION);
+				}
+				else
+				{
+					this.$addElementBtn.show();
+				}
+			}
+		}
 	},
 
-	initElements: function($elements)
+	resetElements: function()
 	{
-		if (this.selectable)
+		this.$elements = $();
+		this.addElements(this.getElements());
+	},
+
+	addElements: function($elements)
+	{
+		if (this.settings.selectable)
 		{
 			this.elementSelect.addItems($elements);
 		}
 
-		if (this.sortable)
+		if (this.settings.sortable)
 		{
 			this.elementSort.addItems($elements);
+		}
+
+		if (this.settings.editable)
+		{
+			this.addListener($elements, 'dblclick', function(ev)
+			{
+				Craft.showElementEditor($(ev.currentTarget));
+			});
 		}
 
 		$elements.find('.delete').on('click', $.proxy(function(ev)
@@ -2129,33 +3650,56 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 			this.removeElement($(ev.currentTarget).closest('.element'));
 		}, this));
 
-		this.addListener($elements, 'dblclick', function(ev)
+		this.$elements = this.$elements.add($elements);
+		this.updateAddElementsBtn();
+	},
+
+	removeElements: function($elements)
+	{
+		if (this.settings.selectable)
 		{
-			Craft.showElementEditor($(ev.currentTarget));
+			this.elementSelect.removeItems($elements);
+		}
+
+		if (this.modal)
+		{
+			var ids = [];
+
+			for (var i = 0; i < $elements.length; i++)
+			{
+				var id = $elements.eq(i).data('id');
+
+				if (id)
+				{
+					ids.push(id);
+				}
+			}
+
+			if (ids.length)
+			{
+				this.modal.elementIndex.enableElementsById(ids);
+			}
+		}
+
+		// Disable the hidden input in case the form is submitted before this element gets removed from the DOM
+		$elements.children('input').prop('disabled', true);
+
+		this.$elements = this.$elements.not($elements);
+		this.updateAddElementsBtn();
+
+		this.onRemoveElements();
+	},
+
+	removeElement: function($element)
+	{
+		this.removeElements($element);
+		this.animateElementAway($element, function() {
+			$element.remove();
 		});
 	},
 
-	removeElement: function(element)
+	animateElementAway: function($element, callback)
 	{
-		var $element = $(element);
-
-		this.$elements = this.$elements.not($element);
-
-		if (this.selectable)
-		{
-			this.elementSelect.removeItems($element);
-		}
-
-		if (this.modal && $element.data('id'))
-		{
-			this.modal.elementIndex.enableElementsById($element.data('id'));
-		}
-
-		if (this.$addElementBtn && this.$addElementBtn.length)
-		{
-			this.updateAddElementsBtn();
-		}
-
 		$element.css('z-index', 0);
 
 		var animateCss = {
@@ -2163,10 +3707,7 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 		};
 		animateCss['margin-'+Craft.left] = -($element.outerWidth() + parseInt($element.css('margin-'+Craft.right)));
 
-		$element.animate(animateCss, 'fast', function() {
-			$element.remove();
-		});
-
+		$element.velocity(animateCss, Craft.BaseElementSelectInput.REMOVE_FX_DURATION, callback);
 	},
 
 	showModal: function()
@@ -2189,28 +3730,40 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 
 	createModal: function()
 	{
-		return Craft.createElementSelectorModal(this.elementType, {
+		return Craft.createElementSelectorModal(this.settings.elementType, this.getModalSettings());
+	},
+
+	getModalSettings: function()
+	{
+		return $.extend({
 			storageKey:         this.modalStorageKey,
-			sources:            this.sources,
-			criteria:           this.criteria,
-			multiSelect:        (this.limit != 1),
-			disabledElementIds: this.getSelectedElementIds(),
+			sources:            this.settings.sources,
+			criteria:           this.settings.criteria,
+			multiSelect:        (this.settings.limit != 1),
+			disabledElementIds: this.getDisabledElementIds(),
 			onSelect:           $.proxy(this, 'onModalSelect')
-		});
+		}, this.settings.modalSettings);
 	},
 
 	getSelectedElementIds: function()
 	{
 		var ids = [];
 
-		if (this.sourceElementId)
-		{
-			ids.push(this.sourceElementId);
-		}
-
 		for (var i = 0; i < this.$elements.length; i++)
 		{
-			ids.push($(this.$elements[i]).data('id'));
+			ids.push(this.$elements.eq(i).data('id'));
+		}
+
+		return ids;
+	},
+
+	getDisabledElementIds: function()
+	{
+		var ids = this.getSelectedElementIds();
+
+		if (this.settings.sourceElementId)
+		{
+			ids.push(this.settings.sourceElementId);
 		}
 
 		return ids;
@@ -2218,10 +3771,10 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 
 	onModalSelect: function(elements)
 	{
-		if (this.limit)
+		if (this.settings.limit)
 		{
 			// Cut off any excess elements
-			var slotsLeft = this.limit - this.$elements.length;
+			var slotsLeft = this.settings.limit - this.$elements.length;
 
 			if (elements.length > slotsLeft)
 			{
@@ -2230,11 +3783,7 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 		}
 
 		this.selectElements(elements);
-
-		if (this.modal.elementIndex)
-		{
-			this.modal.elementIndex.disableElementsById(this.getSelectedElementIds());
-		}
+		this.updateDisabledElementsInModal();
 	},
 
 	selectElements: function(elements)
@@ -2244,33 +3793,12 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 			var element = elements[i],
 				$element = this.createNewElement(element);
 
-			// Animate it into place
-			var origOffset = element.$element.offset(),
-				destOffset = $element.offset();
-
-			var css = {
-				top:    origOffset.top - destOffset.top,
-				zIndex: 10000
-			};
-			css[Craft.left] = origOffset.left - destOffset.left;
-
-			$element.css(css);
-
-			var animateCss = {
-				top: 0
-			};
-			animateCss[Craft.left] = 0;
-
-			$element.animate(animateCss, function() {
-				$(this).css('z-index', 1);
-			});
-
-			this.initElements($element);
-			this.$elements = this.$elements.add($element);
+			this.appendElement($element);
+			this.addElements($element);
+			this.animateElementIntoPlace(element.$element, $element);
 		}
 
-		this.updateAddElementsBtn();
-		this.onSelectElements();
+		this.onSelectElements(elements);
 	},
 
 	createNewElement: function(elementInfo)
@@ -2279,25 +3807,96 @@ Craft.BaseElementSelectInput = Garnish.Base.extend(
 
 		// Make a couple tweaks
 		$element.addClass('removable');
-		$element.prepend('<input type="hidden" name="'+this.name+'[]" value="'+elementInfo.id+'">' +
+		$element.prepend('<input type="hidden" name="'+this.settings.name+'[]" value="'+elementInfo.id+'">' +
 			'<a class="delete icon" title="'+Craft.t('Remove')+'"></a>');
-
-		$element.appendTo(this.$elementsContainer);
 
 		return $element;
 	},
 
-	onSelectElements: function()
+	appendElement: function($element)
 	{
-		this.trigger('selectElements');
+		$element.appendTo(this.$elementsContainer);
 	},
 
-	forceModalRefresh: function ()
+	animateElementIntoPlace: function($modalElement, $inputElement)
 	{
-		if (this.modal)
+		var origOffset = $modalElement.offset(),
+			destOffset = $inputElement.offset(),
+			$helper = $inputElement.clone().appendTo(Garnish.$bod);
+
+		$inputElement.css('visibility', 'hidden');
+
+		$helper.css({
+			position: 'absolute',
+			zIndex: 10000,
+			top: origOffset.top,
+			left: origOffset.left
+		});
+
+		var animateCss = {
+			top: destOffset.top,
+			left: destOffset.left
+		};
+
+		$helper.velocity(animateCss, Craft.BaseElementSelectInput.ADD_FX_DURATION, function() {
+			$helper.remove();
+			$inputElement.css('visibility', 'visible');
+		});
+	},
+
+	updateDisabledElementsInModal: function()
+	{
+		if (this.modal.elementIndex)
 		{
-			this.modal.elementIndex = null;
+			this.modal.elementIndex.disableElementsById(this.getDisabledElementIds());
 		}
+	},
+
+	getElementById: function(id)
+	{
+		for (var i = 0; i < this.$elements.length; i++)
+		{
+			var $element = this.$elements.eq(i);
+
+			if ($element.data('id') == id)
+			{
+				return $element;
+			}
+		}
+	},
+
+	onSelectElements: function(elements)
+	{
+		this.trigger('selectElements', { elements: elements });
+		this.settings.onSelectElements(elements);
+	},
+
+	onRemoveElements: function()
+	{
+		this.trigger('removeElements');
+		this.settings.onRemoveElements();
+	}
+},
+{
+	ADD_FX_DURATION: 200,
+	REMOVE_FX_DURATION: 200,
+
+	defaults: {
+		id: null,
+		name: null,
+		fieldId: null,
+		elementType: null,
+		sources: null,
+		criteria: {},
+		sourceElementId: null,
+		limit: null,
+		modalStorageKey: null,
+		modalSettings: {},
+		onSelectElements: $.noop,
+		onRemoveElements: $.noop,
+		sortable: true,
+		selectable: true,
+		editable: true
 	}
 });
 
@@ -2309,7 +3908,6 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 {
 	elementType: null,
 	elementIndex: null,
-	elementSelect: null,
 
 	$body: null,
 	$selectBtn: null,
@@ -2323,6 +3921,7 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 	$buttons: null,
 	$cancelBtn: null,
 	$selectBtn: null,
+	$footerSpinner: null,
 
 	init: function(elementType, settings)
 	{
@@ -2336,7 +3935,8 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 
 		this.base($container, this.settings);
 
-		this.$buttons = $('<div class="buttons rightalign"/>').appendTo($footer);
+		this.$footerSpinner = $('<div class="spinner hidden"/>').appendTo($footer);
+		this.$buttons = $('<div class="buttons rightalign first"/>').appendTo($footer);
 		this.$cancelBtn = $('<div class="btn">'+Craft.t('Cancel')+'</div>').appendTo(this.$buttons);
 		this.$selectBtn = $('<div class="btn disabled submit">'+Craft.t('Select')+'</div>').appendTo(this.$buttons);
 
@@ -2374,6 +3974,9 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 						storageKey:         this.settings.storageKey,
 						criteria:           this.settings.criteria,
 						disabledElementIds: this.settings.disabledElementIds,
+						selectable:         true,
+						multiSelect:        this.settings.multiSelect,
+						onSelectionChange:  $.proxy(this, 'onSelectionChange'),
 						onUpdateElements:   $.proxy(this, 'onUpdateElements'),
 						onEnableElements:   $.proxy(this, 'onEnableElements'),
 						onDisableElements:  $.proxy(this, 'onDisableElements')
@@ -2398,76 +4001,98 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 	{
 		if (!appended)
 		{
+			// Double-clicking should select the elements
 			this.addListener(this.elementIndex.$elementContainer, 'dblclick', 'selectElements');
 		}
-
-		// Reset the element select
-		if (this.elementSelect)
-		{
-			this.elementSelect.destroy();
-			delete this.elementSelect;
-		}
-
-		if (this.elementIndex.getSelectedSourceState('mode') == 'structure')
-		{
-			var $items = this.elementIndex.$elementContainer.find('.row:not(.disabled)');
-		}
-		else
-		{
-			var $items = this.elementIndex.$elementContainer.children(':not(.disabled)');
-		}
-
-		this.elementSelect = new Garnish.Select(this.elementIndex.$elementContainer, $items, {
-			multi: this.settings.multiSelect,
-			vertical: (this.elementIndex.getSelectedSourceState('mode') != 'thumbs'),
-			onSelectionChange: $.proxy(this, 'onSelectionChange')
-		});
-
-        this.elementIndex.setElementSelect(this.elementSelect);
-    },
+	},
 
 	onSelectionChange: function()
 	{
-		if (this.elementSelect.totalSelected)
+		this.updateSelectBtnState();
+	},
+
+	updateSelectBtnState: function()
+	{
+		if (this.$selectBtn)
 		{
-			this.$selectBtn.removeClass('disabled');
+			if (this.elementIndex.elementSelect.totalSelected)
+			{
+				this.enableSelectBtn();
+			}
+			else
+			{
+				this.disableSelectBtn();
+			}
 		}
-		else
-		{
-			this.$selectBtn.addClass('disabled');
-		}
+	},
+
+	enableSelectBtn: function()
+	{
+		this.$selectBtn.removeClass('disabled');
+	},
+
+	disableSelectBtn: function()
+	{
+		this.$selectBtn.addClass('disabled');
+	},
+
+	enableCancelBtn: function()
+	{
+		this.$cancelBtn.removeClass('disabled');
+	},
+
+	disableCancelBtn: function()
+	{
+		this.$cancelBtn.addClass('disabled');
+	},
+
+	showFooterSpinner: function()
+	{
+		this.$footerSpinner.removeClass('hidden');
+	},
+
+	hideFooterSpinner: function()
+	{
+		this.$footerSpinner.addClass('hidden');
 	},
 
 	onEnableElements: function($elements)
 	{
-		this.elementSelect.addItems($elements);
+		this.elementIndex.elementSelect.addItems($elements);
 	},
 
 	onDisableElements: function($elements)
 	{
-		this.elementSelect.removeItems($elements);
+		this.elementIndex.elementSelect.removeItems($elements);
 	},
 
 	cancel: function()
 	{
-		this.hide();
+		if (!this.$cancelBtn.hasClass('disabled'))
+		{
+			this.hide();
+		}
 	},
 
 	selectElements: function()
 	{
-		if (this.elementIndex && this.elementSelect && this.elementSelect.totalSelected)
+		if (this.elementIndex && this.elementIndex.elementSelect && this.elementIndex.elementSelect.totalSelected)
 		{
-			this.elementSelect.clearMouseUpTimeout();
-			this.hide();
+			this.elementIndex.elementSelect.clearMouseUpTimeout();
 
-			var $selectedItems = this.elementSelect.getSelectedItems(),
+			var $selectedItems = this.elementIndex.elementSelect.getSelectedItems(),
 				elementInfo = this.getElementInfo($selectedItems);
 
 			this.onSelect(elementInfo);
 
-			if (this.settings.disableOnSelect)
+			if (this.settings.disableElementsOnSelect)
 			{
-				this.elementIndex.disableElements(this.elementSelect.getSelectedItems());
+				this.elementIndex.disableElements(this.elementIndex.elementSelect.getSelectedItems());
+			}
+
+			if (this.settings.hideOnSelect)
+			{
+				this.hide();
 			}
 		}
 	},
@@ -2486,9 +4111,35 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 		return info;
 	},
 
+	show: function()
+	{
+		this.updateSelectBtnState();
+		this.base();
+	},
+
 	onSelect: function(elementInfo)
 	{
 		this.settings.onSelect(elementInfo);
+	},
+
+	disable: function()
+	{
+		if (this.elementIndex)
+		{
+			this.elementIndex.disable();
+		}
+
+		this.base();
+	},
+
+	enable: function()
+	{
+		if (this.elementIndex)
+		{
+			this.elementIndex.enable();
+		}
+
+		this.base();
 	}
 },
 {
@@ -2499,7 +4150,8 @@ Craft.BaseElementSelectorModal = Garnish.Modal.extend(
 		criteria: null,
 		multiSelect: false,
 		disabledElementIds: [],
-		disableOnSelect: false,
+		disableElementsOnSelect: false,
+		hideOnSelect: true,
 		onCancel: $.noop,
 		onSelect: $.noop
 	}
@@ -2634,7 +4286,7 @@ Craft.AdminTable = Garnish.Base.extend(
 		}
 
 		this.$deleteBtns = this.$table.find('.delete');
-		this.addListener(this.$deleteBtns, 'click', 'deleteObject');
+		this.addListener(this.$deleteBtns, 'click', 'handleDeleteBtnClick');
 
 		this.updateUI();
 	},
@@ -2657,7 +4309,7 @@ Craft.AdminTable = Garnish.Base.extend(
 
 		this.$deleteBtns = this.$deleteBtns.add($deleteBtn);
 
-		this.addListener($deleteBtn, 'click', 'deleteObject');
+		this.addListener($deleteBtn, 'click', 'handleDeleteBtnClick');
 		this.totalObjects++;
 
 		this.updateUI();
@@ -2701,7 +4353,7 @@ Craft.AdminTable = Garnish.Base.extend(
 		}, this));
 	},
 
-	deleteObject: function(event)
+	handleDeleteBtnClick: function(event)
 	{
 		if (this.settings.minObjects && this.totalObjects <= this.settings.minObjects)
 		{
@@ -2709,44 +4361,68 @@ Craft.AdminTable = Garnish.Base.extend(
 			return;
 		}
 
-		var $row = $(event.target).closest('tr'),
-			id = $row.attr(this.settings.idAttribute),
-			name = $row.attr(this.settings.nameAttribute);
+		var $row = $(event.target).closest('tr');
 
 		if (this.confirmDeleteObject($row))
 		{
-			Craft.postActionRequest(this.settings.deleteAction, { id: id }, $.proxy(function(response, textStatus)
-			{
-				if (textStatus == 'success')
-				{
-					if (response.success)
-					{
-						$row.remove();
-						this.totalObjects--;
-						this.updateUI();
-						this.onDeleteObject(id);
-
-						Craft.cp.displayNotice(Craft.t(this.settings.deleteSuccessMessage, { name: name }));
-					}
-					else
-					{
-						Craft.cp.displayError(Craft.t(this.settings.deleteFailMessage, { name: name }));
-					}
-				}
-
-			}, this));
+			this.deleteObject($row);
 		}
 	},
 
 	confirmDeleteObject: function($row)
 	{
-		var name = $row.attr(this.settings.nameAttribute);
+		var name = this.getObjectName($row);
 		return confirm(Craft.t(this.settings.confirmDeleteMessage, { name: name }));
+	},
+
+	deleteObject: function($row)
+	{
+		var data = {
+			id: this.getObjectId($row)
+		};
+
+		Craft.postActionRequest(this.settings.deleteAction, data, $.proxy(function(response, textStatus)
+		{
+			if (textStatus == 'success')
+			{
+				this.handleDeleteObjectResponse(response, $row);
+			}
+		}, this));
+	},
+
+	handleDeleteObjectResponse: function(response, $row)
+	{
+		var id = this.getObjectId($row),
+			name = this.getObjectName($row);
+
+		if (response.success)
+		{
+			$row.remove();
+			this.totalObjects--;
+			this.updateUI();
+			this.onDeleteObject(id);
+
+			Craft.cp.displayNotice(Craft.t(this.settings.deleteSuccessMessage, { name: name }));
+		}
+		else
+		{
+			Craft.cp.displayError(Craft.t(this.settings.deleteFailMessage, { name: name }));
+		}
 	},
 
 	onDeleteObject: function(id)
 	{
 		this.settings.onDeleteObject(id);
+	},
+
+	getObjectId: function($row)
+	{
+		return $row.attr(this.settings.idAttribute);
+	},
+
+	getObjectName: function($row)
+	{
+		return $row.attr(this.settings.nameAttribute);
 	},
 
 	updateUI: function()
@@ -2834,21 +4510,15 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	$uploadInput: null,
 	$progressBar: null,
 	$folders: null,
-	$previouslySelectedFolder: null,
 
 	uploader: null,
 	promptHandler: null,
 	progressBar: null,
 
-	initialSourceKey: null,
-	isIndexBusy: false,
 	_uploadTotalFiles: 0,
 	_uploadFileProgress: {},
 	_uploadedFileIds: [],
-	_selectedFileIds: [],
-
-	_singleFileMenu: null,
-	_multiFileMenu: null,
+	_currentUploaderSettings: {},
 
 	_fileDrag: null,
 	_folderDrag: null,
@@ -2859,45 +4529,81 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	{
 		this.base(elementType, $container, settings);
 
-		var context = this.settings.context;
-		if (context == 'index')
+		if (this.settings.context == 'index')
 		{
-			this.initIndexMode();
+			this._initIndexPageMode();
+		}
+	},
+
+	initSource: function($source)
+	{
+		this.base($source);
+
+		this._createFolderContextMenu($source);
+
+		if (this.settings.context == 'index')
+		{
+			if (this._folderDrag && this._getSourceLevel($source) > 1)
+			{
+				this._folderDrag.addItems($source.parent());
+			}
+
+			if (this._fileDrag)
+			{
+				this._fileDrag.updateDropTargets();
+			}
+		}
+	},
+
+	deinitSource: function($source)
+	{
+		this.base($source);
+
+		// Does this source have a context menu?
+		var contextMenu = $source.data('contextmenu');
+
+		if (contextMenu)
+		{
+			contextMenu.destroy();
 		}
 
-		var assetIndex = this;
-		this.$sources.each(function() {
+		if (this.settings.context == 'index')
+		{
+			if (this._folderDrag && this._getSourceLevel($source) > 1)
+			{
+				this._folderDrag.removeItems($source.parent());
+			}
 
-			// Index mode gets all the fancy options
-			if (context == 'index')
+			if (this._fileDrag)
 			{
-				assetIndex._createFolderContextMenu.apply(assetIndex, [$(this), true]);
-				if ($(this).parents('ul').length > 1)
-				{
-					assetIndex._folderDrag.addItems($(this).parent());
-				}
+				this._fileDrag.updateDropTargets();
 			}
-			else
-			{
-				assetIndex._createFolderContextMenu.apply(assetIndex, [$(this), false]);
-			}
-		});
+		}
+	},
+
+	_getSourceLevel: function($source)
+	{
+		return $source.parentsUntil('nav', 'ul').length;
 	},
 
 	/**
-	 * Full blown Assets.
+	 * Initialize the index page-specific features
 	 */
-	initIndexMode: function()
+	_initIndexPageMode: function()
 	{
-		// Context menus for the folders
-		var assetIndex = this;
+		// Make the elements selectable
+		this.settings.selectable = true;
+		this.settings.multiSelect = true;
 
-		// ---------------------------------------
+		var onDragStartProxy = $.proxy(this, '_onDragStart'),
+			onDropTargetChangeProxy = $.proxy(this, '_onDropTargetChange');
+
 		// File dragging
-		// ---------------------------------------
+		// ---------------------------------------------------------------------
+
 		this._fileDrag = new Garnish.DragDrop({
-			activeDropTargetClass: 'sel assets-fm-dragtarget',
-			helperOpacity: 0.5,
+			activeDropTargetClass: 'sel',
+			helperOpacity: 0.75,
 
 			filter: $.proxy(function()
 			{
@@ -2906,50 +4612,45 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 			helper: $.proxy(function($file)
 			{
-				return this._getDragHelper($file);
+				return this._getFileDragHelper($file);
 			}, this),
 
 			dropTargets: $.proxy(function()
 			{
 				var targets = [];
 
-				this.$sources.each(function()
+				for (var i = 0; i < this.$sources.length; i++)
 				{
-					targets.push($(this));
-				});
+					targets.push($(this.$sources[i]));
+				}
 
 				return targets;
 			}, this),
 
-			onDragStart: $.proxy(function()
-			{
-				this._tempExpandedFolders = [];
-
-				this.$previouslySelectedFolder = this.$source.removeClass('sel');
-
-			}, this),
-
-			onDropTargetChange: $.proxy(this, '_onDropTargetChange'),
-
+			onDragStart: onDragStartProxy,
+			onDropTargetChange: onDropTargetChangeProxy,
 			onDragStop: $.proxy(this, '_onFileDragStop')
 		});
 
-		// ---------------------------------------
 		// Folder dragging
-		// ---------------------------------------
-		this._folderDrag = new Garnish.DragDrop({
-			activeDropTargetClass: 'sel assets-fm-dragtarget',
-			helperOpacity: 0.5,
+		// ---------------------------------------------------------------------
+
+		this._folderDrag = new Garnish.DragDrop(
+		{
+			activeDropTargetClass: 'sel',
+			helperOpacity: 0.75,
 
 			filter: $.proxy(function()
 			{
-				// return each of the selected <a>'s parent <li>s, except for top level drag attampts.
+				// Return each of the selected <a>'s parent <li>s, except for top level drag attempts.
 				var $selected = this.sourceSelect.getSelectedItems(),
 					draggees = [];
+
 				for (var i = 0; i < $selected.length; i++)
 				{
 					var $source = $($selected[i]).parent();
-					if ($source.parents('ul').length > 1 && $source.hasClass('sel'))
+
+					if ($source.hasClass('sel') && this._getSourceLevel($source) > 1)
 					{
 						draggees.push($source[0]);
 					}
@@ -2958,60 +4659,68 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				return $(draggees);
 			}, this),
 
-			helper: $.proxy(function($folder)
+			helper: $.proxy(function($draggeeHelper)
 			{
-				var $helper = $('<ul class="assets-fm-folderdrag" />').append($folder);
+				var $helperSidebar = $('<div class="sidebar" style="padding-top: 0; padding-bottom: 0;"/>'),
+					$helperNav = $('<nav/>').appendTo($helperSidebar),
+					$helperUl = $('<ul/>').appendTo($helperNav);
 
-				// collapse this folder
-				$folder.removeClass('expanded');
+				$draggeeHelper.appendTo($helperUl).removeClass('expanded');
+				$draggeeHelper.children('a').addClass('sel');
 
-				// set the helper width to the folders container width
-				$helper.width(this.$sidebar[0].scrollWidth);
+				// Match the style
+				$draggeeHelper.css({
+					'padding-top':    this._folderDrag.$draggee.css('padding-top'),
+					'padding-right':  this._folderDrag.$draggee.css('padding-right'),
+					'padding-bottom': this._folderDrag.$draggee.css('padding-bottom'),
+					'padding-left':   this._folderDrag.$draggee.css('padding-left')
+				});
 
-				return $helper;
+				return $helperSidebar;
 			}, this),
 
 			dropTargets: $.proxy(function()
 			{
 				var targets = [];
 
-				this.$sources.each(function()
+				// Tag the dragged folder and it's subfolders
+				var draggedSourceIds = [];
+				this._folderDrag.$draggee.find('a[data-key]').each(function()
 				{
-					if (!$(this).is(assetIndex._folderDrag.$draggee))
-					{
-						targets.push($(this));
-					}
+					draggedSourceIds.push($(this).data('key'));
 				});
+
+				for (var i = 0; i < this.$sources.length; i++)
+				{
+					var $source = $(this.$sources[i]);
+					if (!Craft.inArray($source.data('key'), draggedSourceIds))
+					{
+						targets.push($source);
+					}
+				}
 
 				return targets;
 			}, this),
 
-			onDragStart: $.proxy(function()
-			{
-				this._tempExpandedFolders = [];
-
-				// hide the expanded draggees' subfolders
-				this._folderDrag.$draggee.filter('.expanded').removeClass('expanded').addClass('expanded-tmp')
-			}, this),
-
-			onDropTargetChange: $.proxy(this, '_onDropTargetChange'),
-
+			onDragStart: onDragStartProxy,
+			onDropTargetChange: onDropTargetChangeProxy,
 			onDragStop: $.proxy(this, '_onFolderDragStop')
 		});
-
 	},
 
+	/**
+	 * On file drag stop
+	 */
 	_onFileDragStop: function()
 	{
-		if (this._fileDrag.$activeDropTarget)
+		if (this._fileDrag.$activeDropTarget && this._fileDrag.$activeDropTarget[0] != this.$source[0])
 		{
-			// keep it selected
-			this._fileDrag.$activeDropTarget.addClass('sel');
+			// Keep it selected
+			var originatingSource = this.$source;
 
-			var targetFolderId = this._getFolderIdFromSourceKey(this._fileDrag.$activeDropTarget.data('key'));
-			var originalFileIds = [],
+			var targetFolderId = this._getFolderIdFromSourceKey(this._fileDrag.$activeDropTarget.data('key')),
+				originalFileIds = [],
 				newFileNames = [];
-
 
 			// For each file, prepare array data.
 			for (var i = 0; i < this._fileDrag.$draggee.length; i++)
@@ -3019,11 +4728,16 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				var originalFileId = Craft.getElementInfo(this._fileDrag.$draggee[i]).id,
 					fileName = Craft.getElementInfo(this._fileDrag.$draggee[i]).url.split('/').pop();
 
+				if (fileName.indexOf('?') !== -1)
+				{
+					fileName = fileName.split('?').shift();
+				}
+
 				originalFileIds.push(originalFileId);
 				newFileNames.push(fileName);
 			}
 
-			// are any files actually getting moved?
+			// Are any files actually getting moved?
 			if (originalFileIds.length)
 			{
 				this.setIndexBusy();
@@ -3034,7 +4748,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				this.progressBar.showProgressBar();
 
 
-				// for each file to move a separate request
+				// For each file to move a separate request
 				var parameterArray = [];
 				for (i = 0; i < originalFileIds.length; i++)
 				{
@@ -3045,17 +4759,17 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 					});
 				}
 
-				// define the callback for when all file moves are complete
+				// Define the callback for when all file moves are complete
 				var onMoveFinish = $.proxy(function(responseArray)
 				{
 					this.promptHandler.resetPrompts();
 
-					// loop trough all the responses
+					// Loop trough all the responses
 					for (var i = 0; i < responseArray.length; i++)
 					{
 						var data = responseArray[i];
 
-						// push prompt into prompt array
+						// Push prompt into prompt array
 						if (data.prompt)
 						{
 							this.promptHandler.addPrompt(data);
@@ -3069,23 +4783,48 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 					this.setIndexAvailable();
 					this.progressBar.hideProgressBar();
+					var reloadIndex = false;
+
+					var performAfterMoveActions = function ()
+					{
+						// Select original source
+						this.sourceSelect.selectItem(originatingSource);
+
+						// Make sure we use the correct offset when fetching the next page
+						this._totalVisible -= this._fileDrag.$draggee.length;
+
+						// And remove the elements that have been moved away
+						for (var i = 0; i < originalFileIds.length; i++)
+						{
+							$('[data-id=' + originalFileIds[i] + ']').remove();
+						}
+
+						this.elementSelect.deselectAll();
+						this._collapseExtraExpandedFolders(targetFolderId);
+
+						if (reloadIndex)
+						{
+							this.updateElements();
+						}
+					};
 
 					if (this.promptHandler.getPromptCount())
 					{
-						// define callback for completing all prompts
+						// Define callback for completing all prompts
 						var promptCallback = $.proxy(function(returnData)
 						{
 							var newParameterArray = [];
 
-							// loop trough all returned data and prepare a new request array
+							// Loop trough all returned data and prepare a new request array
 							for (var i = 0; i < returnData.length; i++)
 							{
 								if (returnData[i].choice == 'cancel')
 								{
+									reloadIndex = true;
 									continue;
 								}
 
-								// find the matching request parameters for this file and modify them slightly
+								// Find the matching request parameters for this file and modify them slightly
 								for (var ii = 0; ii < parameterArray.length; ii++)
 								{
 									if (parameterArray[ii].fileName == returnData[i].fileName)
@@ -3096,20 +4835,20 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 								}
 							}
 
-							// nothing to do, carry on
+							// Nothing to do, carry on
 							if (newParameterArray.length == 0)
 							{
-								this._selectSourceByFolderId(targetFolderId);
+								performAfterMoveActions.apply(this);
 							}
 							else
 							{
-								// start working
+								// Start working
 								this.setIndexBusy();
 								this.progressBar.resetProgressBar();
 								this.progressBar.setItemCount(this.promptHandler.getPromptCount());
 								this.progressBar.showProgressBar();
 
-								// move conflicting files again with resolutions now
+								// Move conflicting files again with resolutions now
 								this._moveFile(newParameterArray, 0, onMoveFinish);
 							}
 						}, this);
@@ -3119,54 +4858,54 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 					}
 					else
 					{
+						performAfterMoveActions.apply(this);
 						this._fileDrag.fadeOutHelpers();
-						this._selectSourceByFolderId(targetFolderId);
 					}
 				}, this);
 
-				// initiate the file move with the built array, index of 0 and callback to use when done
+				// Initiate the file move with the built array, index of 0 and callback to use when done
 				this._moveFile(parameterArray, 0, onMoveFinish);
 
-				// skip returning dragees
+				// Skip returning dragees
 				return;
 			}
 		}
 		else
 		{
+			// Add the .sel class back on the selected source
+			this.$source.addClass('sel');
+
 			this._collapseExtraExpandedFolders();
 		}
-
-		// re-select the previously selected folders
-		this.$previouslySelectedFolder.addClass('sel');
 
 		this._fileDrag.returnHelpersToDraggees();
 	},
 
+	/**
+	 * On folder drag stop
+	 */
 	_onFolderDragStop: function()
 	{
-		// show the expanded draggees' subfolders
-		this._folderDrag.$draggee.filter('.expanded-tmp').removeClass('expanded-tmp').addClass('expanded');
-
 		// Only move if we have a valid target and we're not trying to move into our direct parent
 		if (
-			this._folderDrag.$activeDropTarget
-				&& this._folderDrag.$activeDropTarget.siblings('ul').find('>li').filter(this._folderDrag.$draggee).length == 0
+			this._folderDrag.$activeDropTarget &&
+			this._folderDrag.$activeDropTarget.siblings('ul').children('li').filter(this._folderDrag.$draggee).length == 0
 		)
 		{
 			var targetFolderId = this._getFolderIdFromSourceKey(this._folderDrag.$activeDropTarget.data('key'));
 
 			this._collapseExtraExpandedFolders(targetFolderId);
 
-			// get the old folder IDs, and sort them so that we're moving the most-nested folders first
+			// Get the old folder IDs, and sort them so that we're moving the most-nested folders first
 			var folderIds = [];
 
 			for (var i = 0; i < this._folderDrag.$draggee.length; i++)
 			{
-				var $a = $('> a', this._folderDrag.$draggee[i]),
+				var $a = this._folderDrag.$draggee.eq(i).children('a'),
 					folderId = this._getFolderIdFromSourceKey($a.data('key')),
 					$source = this._getSourceByFolderId(folderId);
 
-				// make sure it's not already in the target folder
+				// Make sure it's not already in the target folder
 				if (this._getFolderIdFromSourceKey(this._getParentSource($source).data('key')) != targetFolderId)
 				{
 					folderIds.push(folderId);
@@ -3195,7 +4934,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 					});
 				}
 
-				// increment, so to avoid displaying folder files that are being moved
+				// Increment, so to avoid displaying folder files that are being moved
 				this.requestId++;
 
 				/*
@@ -3214,13 +4953,13 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				 6) Champagne
 				 */
 
-				// this will hold the final list of files to move
+				// This will hold the final list of files to move
 				var fileMoveList = [];
 
-				// these folders have to be deleted at the end
+				// These folders have to be deleted at the end
 				var folderDeleteList = [];
 
-				// this one tracks the changed folder ids
+				// This one tracks the changed folder ids
 				var changedFolderIds = {};
 
 				var removeFromTree = [];
@@ -3229,12 +4968,12 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				{
 					this.promptHandler.resetPrompts();
 
-					// loop trough all the responses
+					// Loop trough all the responses
 					for (var i = 0; i < responseArray.length; i++)
 					{
 						var data = responseArray[i];
 
-						// if succesful and have data, then update
+						// If succesful and have data, then update
 						if (data.success)
 						{
 							if (data.transferList && data.deleteList && data.changedFolderIds)
@@ -3243,19 +4982,22 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 								{
 									fileMoveList.push(data.transferList[ii]);
 								}
+
 								for (var ii = 0; ii < data.deleteList.length; ii++)
 								{
 									folderDeleteList.push(data.deleteList[ii]);
 								}
+
 								for (var oldFolderId in data.changedFolderIds)
 								{
 									changedFolderIds[oldFolderId] = data.changedFolderIds[oldFolderId];
 								}
+
 								removeFromTree.push(data.removeFromTree);
 							}
 						}
 
-						// push prompt into prompt array
+						// Push prompt into prompt array
 						if (data.prompt)
 						{
 							this.promptHandler.addPrompt(data);
@@ -3269,7 +5011,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 					if (this.promptHandler.getPromptCount())
 					{
-						// define callback for completing all prompts
+						// Define callback for completing all prompts
 						var promptCallback = $.proxy(function(returnData)
 						{
 							this.promptHandler.resetPrompts();
@@ -3277,7 +5019,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 							var newParameterArray = [];
 
-							// loop trough all returned data and prepare a new request array
+							// Loop trough all returned data and prepare a new request array
 							for (var i = 0; i < returnData.length; i++)
 							{
 								if (returnData[i].choice == 'cancel')
@@ -3287,23 +5029,22 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 								parameterArray[0].action = returnData[i].choice;
 								newParameterArray.push(parameterArray[0]);
-
 							}
 
-							// start working on them lists, baby
+							// Start working on them lists, baby
 							if (newParameterArray.length == 0)
 							{
 								$.proxy(this, '_performActualFolderMove', fileMoveList, folderDeleteList, changedFolderIds, removeFromTree)();
 							}
 							else
 							{
-								// start working
+								// Start working
 								this.setIndexBusy();
 								this.progressBar.resetProgressBar();
 								this.progressBar.setItemCount(this.promptHandler.getPromptCount());
 								this.progressBar.showProgressBar();
 
-								// move conflicting files again with resolutions now
+								// Move conflicting files again with resolutions now
 								moveFolder(newParameterArray, 0, onMoveFinish);
 							}
 						}, this);
@@ -3317,7 +5058,6 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 					{
 						$.proxy(this, '_performActualFolderMove', fileMoveList, folderDeleteList, changedFolderIds, removeFromTree, targetFolderId)();
 					}
-
 				}, this);
 
 				var moveFolder = $.proxy(function(parameterArray, parameterIndex, callback)
@@ -3346,19 +5086,21 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 						{
 							moveFolder(parameterArray, parameterIndex, callback);
 						}
-
 					}, this));
 				}, this);
 
-				// initiate the folder move with the built array, index of 0 and callback to use when done
+				// Initiate the folder move with the built array, index of 0 and callback to use when done
 				moveFolder(parameterArray, 0, onMoveFinish);
 
-				// skip returning dragees until we get the Ajax response
+				// Skip returning dragees until we get the Ajax response
 				return;
 			}
 		}
 		else
 		{
+			// Add the .sel class back on the selected source
+			this.$source.addClass('sel');
+
 			this._collapseExtraExpandedFolders();
 		}
 
@@ -3374,7 +5116,6 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 		this.progressBar.resetProgressBar();
 		this.progressBar.setItemCount(1);
 		this.progressBar.showProgressBar();
-
 
 		var moveCallback = $.proxy(function(folderDeleteList, changedFolderIds, removeFromTree)
 		{
@@ -3409,7 +5150,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				return;
 			}
 
-			var topFolder = topFolderLi.find('>a');
+			var topFolder = topFolderLi.children('a');
 
 			// Now move the uppermost node.
 			var siblings = topFolderLi.siblings('ul, .toggle');
@@ -3417,14 +5158,14 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 			var newParent = this._getSourceByFolderId(targetFolderId);
 			this._prepareParentForChildren(newParent);
-			this._addSubfolder(newParent, topFolderLi);
+			this._appendSubfolder(newParent, topFolderLi);
 
 			topFolder.after(siblings);
 
 			this._cleanUpTree(parentSource);
 			this.$sidebar.find('ul>ul, ul>.toggle').remove();
 
-			// delete the old folders
+			// Delete the old folders
 			for (var i = 0; i < folderDeleteList.length; i++)
 			{
 				Craft.postActionRequest('assets/deleteFolder', {folderId: folderDeleteList[i]});
@@ -3452,17 +5193,17 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 	/**
 	 * Get parent source for a source.
+	 *
 	 * @param $source
 	 * @returns {*}
 	 * @private
 	 */
 	_getParentSource: function($source)
 	{
-		if ($source.parents('ul').length == 1)
+		if (this._getSourceLevel($source) > 1)
 		{
-			return null;
+			return $source.parent().parent().siblings('a');
 		}
-		return $source.parent().parent().siblings('a');
 	},
 
 	/**
@@ -3509,19 +5250,27 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 	_selectSourceByFolderId: function(targetFolderId)
 	{
-		var targetSource = this._getSourceByFolderId(targetFolderId);
+		var $targetSource = this._getSourceByFolderId(targetFolderId);
 
 		// Make sure that all the parent sources are expanded and this source is visible.
-		var parentSources = targetSource.parent().parents('li');
-		parentSources.each(function()
-		{
-			if (!$(this).hasClass('expanded'))
-			{
-				$(this).find('> .toggle').click();
-			}
-		});
+		var $parentSources = $targetSource.parent().parents('li');
 
-		this.selectSource(targetSource);
+		for (var i = 0; i < $parentSources.length; i++)
+		{
+			var $parentSource = $($parentSources[i]);
+
+			if (!$parentSource.hasClass('expanded'))
+			{
+				$parentSource.children('.toggle').click();
+			}
+		};
+
+		this.sourceSelect.selectItem($targetSource);
+
+		this.$source = $targetSource;
+		this.sourceKey = $targetSource.data('key');
+		this.setInstanceState('selectedSource', this.sourceKey);
+
 		this.updateElements();
 	},
 
@@ -3534,7 +5283,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	{
 		if (!this.$uploadButton)
 		{
-			this.$uploadButton = $('<div class="btn submit assets-upload-button" data-icon="↑" style="position: relative; overflow: hidden;" role="button">' + Craft.t('Upload files') + '</div>');
+			this.$uploadButton = $('<div class="btn submit" data-icon="upload" style="position: relative; overflow: hidden;" role="button">' + Craft.t('Upload files') + '</div>');
 			this.addButton(this.$uploadButton);
 
 			this.$uploadInput = $('<input type="file" multiple="multiple" name="assets-upload" />').hide().insertBefore(this.$uploadButton);
@@ -3560,9 +5309,16 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 			options.allowedKinds = this.settings.criteria.kind;
 		}
 
+		this._currentUploaderSettings = options;
+
 		this.uploader = new Craft.Uploader (this.$uploadButton, options);
+
 		this.$uploadButton.on('click', $.proxy(function()
 		{
+			if (this.$uploadButton.hasClass('disabled'))
+			{
+				return;
+			}
 			if (!this.isIndexBusy)
 			{
 				this.$uploadButton.parent().find('input[name=assets-upload]').click();
@@ -3575,7 +5331,14 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	onSelectSource: function()
 	{
 		this.uploader.setParams({folderId: this._getFolderIdFromSourceKey(this.sourceKey)});
-
+		if (!this.$source.attr('data-upload'))
+		{
+			this.$uploadButton.addClass('disabled');
+		}
+		else
+		{
+			this.$uploadButton.removeClass('disabled');
+		}
 		this.base();
 	},
 
@@ -3590,7 +5353,8 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	 * @param id
 	 * @private
 	 */
-	_onUploadStart: function(event) {
+	_onUploadStart: function(event)
+	{
 		this.setIndexBusy();
 
 		// Initial values
@@ -3602,7 +5366,8 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	/**
 	 * Update uploaded byte count.
 	 */
-	_onUploadProgress: function(event, data) {
+	_onUploadProgress: function(event, data)
+	{
 		var progress = parseInt(data.loaded / data.total * 100, 10);
 		this.progressBar.setProgressPercentage(progress);
 	},
@@ -3610,7 +5375,8 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	/**
 	 * On Upload Complete.
 	 */
-	_onUploadComplete: function(event, data) {
+	_onUploadComplete: function(event, data)
+	{
 		var response = data.result;
 		var fileName = data.files[0].name;
 
@@ -3637,10 +5403,11 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 			{
 				alert(Craft.t('Upload failed for {filename}.', { filename: fileName }));
 			}
+
 			doReload = false;
 		}
 
-		// for the last file, display prompts, if any. If not - just update the element view.
+		// For the last file, display prompts, if any. If not - just update the element view.
 		if (this.uploader.isLastUpload())
 		{
 			this.setIndexAvailable();
@@ -3656,7 +5423,6 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				{
 					this.updateElements();
 				}
-
 			}
 		}
 	},
@@ -3686,9 +5452,9 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 		var doFollowup = $.proxy(function(parameterArray, parameterIndex, callback)
 		{
 			var postData = {
-				additionalInfo: parameterArray[parameterIndex].additionalInfo,
-				fileName:       parameterArray[parameterIndex].fileName,
-				userResponse:   parameterArray[parameterIndex].choice
+				newFileId:    parameterArray[parameterIndex].fileId,
+				fileName:     parameterArray[parameterIndex].fileName,
+				userResponse: parameterArray[parameterIndex].choice
 			};
 
 			Craft.postActionRequest('assets/uploadFile', postData, $.proxy(function(data, textStatus)
@@ -3721,312 +5487,103 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	 * Perform actions after updating elements
 	 * @private
 	 */
-	onUpdateElements: function(append)
+	onUpdateElements: function(append, $newElements)
 	{
-		this.base(append);
-
 		if (this.settings.context == 'index')
 		{
-			$elements = this.$elementContainer.children(':not(.disabled)');
-			this._initElementSelect($elements);
-			this._attachElementEvents($elements);
-			this._initElementDragger($elements);
+			if (!append)
+			{
+				this._fileDrag.removeAllItems();
+			}
+
+			this._fileDrag.addItems($newElements);
 		}
 
 		// See if we have freshly uploaded files to add to selection
 		if (this._uploadedFileIds.length)
 		{
-			var item = null;
+			var $item = null;
 			for (var i = 0; i < this._uploadedFileIds.length; i++)
 			{
-				item = this.$main.find('[data-id=' + this._uploadedFileIds[i] + ']:first').parent();
+				$item = this.$main.find('.element[data-id=' + this._uploadedFileIds[i] + ']:first').parent();
 				if (this.getSelectedSourceState('mode') == 'table')
 				{
-					item = item.parent();
+					$item = $item.parent();
 				}
 
-				this.elementSelect.selectItem(item);
+				if (this.elementSelect)
+				{
+					this.elementSelect.selectItem($item);
+				}
 			}
 
 			// Reset the list.
 			this._uploadedFileIds = [];
 		}
-	},
 
-	_initElementSelect: function($children)
-	{
-		if (typeof this.elementSelect == "object" && this.elementSelect != null)
-		{
-			this.elementSelect.destroy();
-			delete this.elementSelect;
-		}
-
-		var elementSelect = new Garnish.Select(this.$elementContainer, $children, {
-			multi: true,
-			vertical: (this.getSelectedSourceState('mode') == 'table'),
-			onSelectionChange: $.proxy(this, '_onElementSelectionChange')
-		});
-
-		this.setElementSelect(elementSelect);
-	},
-
-	_onElementSelectionChange: function()
-	{
-		this._enableElementContextMenu();
-		var selected = this.elementSelect.getSelectedItems();
-		this._selectedFileIds = [];
-		for (var i = 0; i < selected.length; i++)
-		{
-			this._selectedFileIds[i] = Craft.getElementInfo(selected[i]).id;
-		}
-	},
-
-	_attachElementEvents: function($elements)
-	{
-		// Doubleclick opens the HUD for editing
-		this.removeListener($elements, 'dlbclick');
-		this.addListener($elements, 'dblclick', $.proxy(this, '_editProperties'));
-
-		// Context menus
-		this._destroyElementContextMenus();
-		this._createElementContextMenus($elements);
-	},
-
-	_initElementDragger: function($elements)
-	{
-		this._fileDrag.removeAllItems();
-		this._fileDrag.addItems($elements);
-	},
-
-	_editProperties: function(event)
-	{
-		var $element = $(event.currentTarget).find('.element');
-		new Craft.ElementEditor($element);
-	},
-
-	_createElementContextMenus: function($elements)
-	{
-		var settings = {menuClass: 'menu assets-contextmenu'};
-
-		var menuOptions = [{ label: Craft.t('View file'), onClick: $.proxy(this, '_viewFile') }];
-		menuOptions.push({ label: Craft.t('Edit properties'), onClick: $.proxy(this, '_showProperties') });
-		menuOptions.push({ label: Craft.t('Rename file'), onClick: $.proxy(this, '_renameFile') });
-		menuOptions.push({ label: Craft.t('Copy reference tag'), onClick: $.proxy(this, '_copyRefTag') });
-		menuOptions.push('-');
-		menuOptions.push({ label: Craft.t('Delete file'), onClick: $.proxy(this, '_deleteFile') });
-		this._singleFileMenu = new Garnish.ContextMenu($elements, menuOptions, settings);
-
-		menuOptions = [{ label: Craft.t('Delete'), onClick: $.proxy(this, '_deleteFiles') }];
-		this._multiFileMenu = new Garnish.ContextMenu($elements, menuOptions, settings);
-
-		this._enableElementContextMenu();
-	},
-
-	_destroyElementContextMenus: function()
-	{
-		if (this._singleFileMenu !== null)
-		{
-			this._singleFileMenu.destroy();
-		}
-		if (this._multiFileMenu !== null)
-		{
-			this._singleFileMenu.destroy();
-		}
-	},
-
-	_enableElementContextMenu: function()
-	{
-		this._multiFileMenu.disable();
-		this._singleFileMenu.disable();
-
-		if (this.elementSelect.getTotalSelected() == 1)
-		{
-			this._singleFileMenu.enable();
-		}
-		else if (this.elementSelect.getTotalSelected() > 1)
-		{
-			this._multiFileMenu.enable();
-		}
-	},
-
-	_showProperties: function(event)
-	{
-		$(event.currentTarget).dblclick();
-	},
-
-	_viewFile: function(event)
-	{
-		window.open(Craft.getElementInfo(event.currentTarget).url);
+		this.base(append, $newElements)
 	},
 
 	/**
-	 * Rename File
+	 * On Drag Start
 	 */
-	_renameFile: function(event)
+	_onDragStart: function()
 	{
-		var $target = $(event.currentTarget);
-		var fileId = Craft.getElementInfo($target).id,
-			oldName = Craft.getElementInfo($target).url.split('/').pop();
-		if (oldName.indexOf('?') !== -1)
-		{
-			oldName = oldName.split('?').shift();
-		}
-
-		var newName = prompt(Craft.t("Rename file"), oldName);
-
-		if (newName && newName != oldName)
-		{
-			this.setIndexBusy();
-
-			var postData = {
-				fileId:   fileId,
-				folderId: this._getFolderIdFromSourceKey(this.$source.data('key')),
-				fileName: newName
-			};
-
-			var handleRename = function(data, textStatus)
-			{
-				this.setIndexAvailable();
-
-				this.promptHandler.resetPrompts();
-				if (textStatus == 'success')
-				{
-					if (data.prompt)
-					{
-						this.promptHandler.addPrompt(data);
-
-						var callback = $.proxy(function(choice)
-						{
-							choice = choice[0].choice;
-							if (choice != 'cancel')
-							{
-								postData.action = choice;
-								Craft.postActionRequest('assets/moveFile', postData, $.proxy(handleRename, this));
-							}
-						}, this);
-
-						this.promptHandler.showBatchPrompts(callback);
-					}
-
-					if (data.success)
-					{
-						this.updateElements();
-
-						// If assets were just merged we should get the referece tags updated right away
-						Craft.cp.runPendingTasks();
-					}
-
-					if (data.error)
-					{
-						alert(data.error);
-					}
-				}
-			};
-
-			Craft.postActionRequest('assets/moveFile', postData, $.proxy(handleRename, this));
-		}
-	},
-
-	_copyRefTag: function(event)
-	{
-		var message = Craft.t('{ctrl}C to copy.', {
-			ctrl: (navigator.appVersion.indexOf('Mac') ? '⌘' : 'Ctrl-')
-		});
-
-		prompt(message, '{asset:'+Craft.getElementInfo($(event.currentTarget)).id+'}');
+		this._tempExpandedFolders = [];
 	},
 
 	/**
-	 * Delete a file
+	 * Get File Drag Helper
 	 */
-	_deleteFile: function(event)
-	{
-		var $target = $(event.currentTarget);
-		var fileId = Craft.getElementInfo($target).id;
-
-		var fileTitle = Craft.getElementInfo($target).label;
-
-		if (confirm(Craft.t('Are you sure you want to delete “{name}”?', { name: fileTitle })))
-		{
-			if ($target.data('AssetEditor'))
-			{
-				$target.data('AssetEditor').removeHud();
-			}
-
-			this.setIndexBusy();
-
-			Craft.postActionRequest('assets/deleteFile', {fileId: fileId}, $.proxy(function(data, textStatus)
-			{
-				this.setIndexAvailable();
-
-				if (textStatus == 'success')
-				{
-					if (data.error)
-					{
-						alert(data.error);
-					}
-
-					this.updateElements();
-
-				}
-
-			}, this));
-		}
-	},
-
-	/**
-	 * Delete multiple files.
-	 */
-	_deleteFiles: function()
-	{
-		if (confirm(Craft.t("Are you sure you want to delete these {number} files?", {number: this.elementSelect.getTotalSelected()})))
-		{
-			this.setIndexBusy();
-
-			var postData = {};
-
-			for (var i = 0; i < this._selectedFileIds.length; i++)
-			{
-				postData['fileId['+i+']'] = this._selectedFileIds[i];
-			}
-
-			Craft.postActionRequest('assets/deleteFile', postData, $.proxy(function(data, textStatus)
-			{
-				this.setIndexAvailable();
-
-				if (textStatus == 'success')
-				{
-					if (data.error)
-					{
-						alert(data.error);
-					}
-
-					this.updateElements();
-				}
-
-			}, this));
-		}
-	},
-
-	_getDragHelper: function($element)
+	_getFileDragHelper: function($element)
 	{
 		var currentView = this.getSelectedSourceState('mode');
+
 		switch (currentView)
 		{
 			case 'table':
 			{
-				var $container = $('<div class="assets-listview assets-lv-drag" />'),
-					$table = $('<table cellpadding="0" cellspacing="0" border="0" />').appendTo($container),
-					$tbody = $('<tbody />').appendTo($table);
+				var $outerContainer = $('<div class="elements datatablesorthelper"/>').appendTo(Garnish.$bod),
+					$innerContainer = $('<div class="tableview"/>').appendTo($outerContainer),
+					$table = $('<table class="data"/>').appendTo($innerContainer),
+					$tbody = $('<tbody/>').appendTo($table);
 
-				$table.width(this.$table.width());
-				$tbody.append($element);
+				$element.appendTo($tbody);
 
-				return $container;
+				// Copy the column widths
+				this._$firstRowCells = this.$elementContainer.children('tr:first').children();
+				var $helperCells = $element.children();
+
+				for (var i = 0; i < $helperCells.length; i++)
+				{
+					// Hard-set the cell widths
+					var $helperCell = $($helperCells[i]);
+
+					// Skip the checkbox cell
+					if (Garnish.hasAttr($helperCell, 'data-checkboxcell'))
+					{
+						$helperCell.remove();
+						$outerContainer.css('margin-'+Craft.left, 19); // 26 - 7
+						continue;
+					}
+
+					var $firstRowCell = $(this._$firstRowCells[i]),
+						width = $firstRowCell.width();
+
+					$firstRowCell.width(width);
+					$helperCell.width(width);
+				}
+
+				return $outerContainer;
 			}
 			case 'thumbs':
 			{
-				return $('<ul class="thumbsview assets-tv-drag" />').append($element.removeClass('sel'));
+				var $outerContainer = $('<div class="elements thumbviewhelper"/>').appendTo(Garnish.$bod),
+					$innerContainer = $('<ul class="thumbsview"/>').appendTo($outerContainer);
+
+				$element.appendTo($innerContainer);
+
+				return $outerContainer;
 			}
 		}
 
@@ -4058,6 +5615,16 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 				this.dropTargetFolder = null;
 			}
 		}
+
+		if ($dropTarget && $dropTarget[0] != this.$source[0])
+		{
+			// Temporarily remove the .sel class on the active source
+			this.$source.removeClass('sel');
+		}
+		else
+		{
+			this.$source.addClass('sel');
+		}
 	},
 
 	/**
@@ -4067,20 +5634,20 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	{
 		clearTimeout(this._expandDropTargetFolderTimeout);
 
-		// If a source id is passed in, exclude it's parents
+		// If a source ID is passed in, exclude its parents
 		if (dropTargetFolderId)
 		{
-			var excluded = this._getSourceByFolderId(dropTargetFolderId).parents('li').find('>a');
+			var excluded = this._getSourceByFolderId(dropTargetFolderId).parents('li').children('a');
 		}
 
 		for (var i = this._tempExpandedFolders.length-1; i >= 0; i--)
 		{
-			var source = this._tempExpandedFolders[i];
+			var $source = this._tempExpandedFolders[i];
 
-			// check the parent list, if a source id is passed in
-			if (! dropTargetFolderId || excluded.filter('[data-key="' + source.data('key') + '"]').length == 0)
+			// Check the parent list, if a source id is passed in
+			if (! dropTargetFolderId || excluded.filter('[data-key="' + $source.data('key') + '"]').length == 0)
 			{
-				this._collapseFolder(source);
+				this._collapseFolder($source);
 				this._tempExpandedFolders.splice(i, 1);
 			}
 		}
@@ -4091,59 +5658,57 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 		return this.$sources.filter('[data-key="folder:' + folderId + '"]');
 	},
 
-	_hasSubfolders: function(source)
+	_hasSubfolders: function($source)
 	{
-		return source.siblings('ul').find('li').length;
+		return $source.siblings('ul').find('li').length;
 	},
 
-	_isExpanded: function(source)
+	_isExpanded: function($source)
 	{
-		return source.parent('li').hasClass('expanded');
+		return $source.parent('li').hasClass('expanded');
 	},
 
 	_expandFolder: function()
 	{
-		// collapse any temp-expanded drop targets that aren't parents of this one
+		// Collapse any temp-expanded drop targets that aren't parents of this one
 		this._collapseExtraExpandedFolders(this._getFolderIdFromSourceKey(this.dropTargetFolder.data('key')));
 
-		this.dropTargetFolder.parent().find('> .toggle').click();
+		this.dropTargetFolder.siblings('.toggle').click();
 
-		// keep a record of that
+		// Keep a record of that
 		this._tempExpandedFolders.push(this.dropTargetFolder);
-
 	},
 
-	_collapseFolder: function(source)
+	_collapseFolder: function($source)
 	{
-		var li = source.parent();
-		if (li.hasClass('expanded'))
+		if ($source.parent().hasClass('expanded'))
 		{
-			li.find('> .toggle').click();
+			$source.siblings('.toggle').click();
 		}
 	},
 
-	_createFolderContextMenu: function(element, addAllOptions)
+	_createFolderContextMenu: function($source)
 	{
-		element = $(element);
-		var menuOptions = [{ label: Craft.t('New subfolder'), onClick: $.proxy(this, '_createSubfolder', element) }];
+		var menuOptions = [{ label: Craft.t('New subfolder'), onClick: $.proxy(this, '_createSubfolder', $source) }];
 
 		// For all folders that are not top folders
-		if (element.parents('ul').length > 1 && addAllOptions)
+		if (this.settings.context == 'index' && this._getSourceLevel($source) > 1)
 		{
-			menuOptions.push({ label: Craft.t('Rename folder'), onClick: $.proxy(this, '_renameFolder', element) });
-			menuOptions.push({ label: Craft.t('Delete folder'), onClick: $.proxy(this, '_deleteFolder', element) });
+			menuOptions.push({ label: Craft.t('Rename folder'), onClick: $.proxy(this, '_renameFolder', $source) });
+			menuOptions.push({ label: Craft.t('Delete folder'), onClick: $.proxy(this, '_deleteFolder', $source) });
 		}
-		new Garnish.ContextMenu(element, menuOptions, {menuClass: 'menu assets-contextmenu'});
+
+		new Garnish.ContextMenu($source, menuOptions, {menuClass: 'menu'});
 	},
 
-	_createSubfolder: function(parentFolder)
+	_createSubfolder: function($parentFolder)
 	{
 		var subfolderName = prompt(Craft.t('Enter the name of the folder'));
 
 		if (subfolderName)
 		{
 			var params = {
-				parentId:  this._getFolderIdFromSourceKey(parentFolder.data('key')),
+				parentId:  this._getFolderIdFromSourceKey($parentFolder.data('key')),
 				folderName: subfolderName
 			};
 
@@ -4155,39 +5720,38 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 				if (textStatus == 'success' && data.success)
 				{
-					this._prepareParentForChildren(parentFolder);
+					this._prepareParentForChildren($parentFolder);
 
-					var subFolder = $('<li><a data-key="folder:' + data.folderId + '" data-has-thumbs="' + parentFolder.data('has-thumbs') + '">' + data.folderName + '</a></li>');
+					var $subFolder = $(
+						'<li>' +
+							'<a data-key="folder:'+data.folderId+'"' +
+								(Garnish.hasAttr($parentFolder, 'data-has-thumbs') ? ' data-has-thumbs' : '') +
+								' data-upload="'+$parentFolder.attr('data-upload')+'"' +
+							'>' +
+								data.folderName +
+							'</a>' +
+						'</li>'
+					);
 
-					var $a = subFolder.find('a');
-					this._addSubfolder(parentFolder, subFolder);
-					this._createFolderContextMenu($a, this.settings.context == "index");
-					this.sourceSelect.addItems($a);
-
-					// For Assets Modals the folder drag manager won't be available
-					if (this._folderDrag)
-					{
-						this._folderDrag.addItems($a.parent());
-					}
-
-					this.$sources = this.$sources.add($a);
+					var $a = $subFolder.children('a:first');
+					this._appendSubfolder($parentFolder, $subFolder);
+					this.initSource($a);
 				}
 
 				if (textStatus == 'success' && data.error)
 				{
 					alert(data.error);
 				}
-
 			}, this));
 		}
 	},
 
-	_deleteFolder: function(targetFolder)
+	_deleteFolder: function($targetFolder)
 	{
-		if (confirm(Craft.t('Really delete folder “{folder}”?', {folder: $.trim(targetFolder.text())})))
+		if (confirm(Craft.t('Really delete folder “{folder}”?', {folder: $.trim($targetFolder.text())})))
 		{
 			var params = {
-				folderId: this._getFolderIdFromSourceKey(targetFolder.data('key'))
+				folderId: this._getFolderIdFromSourceKey($targetFolder.data('key'))
 			}
 
 			this.setIndexBusy();
@@ -4198,22 +5762,21 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 				if (textStatus == 'success' && data.success)
 				{
-					var parentFolder = this._getParentSource(targetFolder);
+					var $parentFolder = this._getParentSource($targetFolder);
 
-					// remove folder and any trace from it's parent, if needed.
-					this.$sources = this.$sources.not(targetFolder);
-					this.sourceSelect.removeItems(targetFolder);
+					// Remove folder and any trace from its parent, if needed
+					this.deinitSource($targetFolder);
 
-					targetFolder.parent().remove();
-					this._cleanUpTree(parentFolder);
+					$targetFolder.parent().remove();
+					this._cleanUpTree($parentFolder);
 
+					this.$sidebar.trigger('resize');
 				}
 
 				if (textStatus == 'success' && data.error)
 				{
 					alert(data.error);
 				}
-
 			}, this));
 		}
 	},
@@ -4221,15 +5784,15 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	/**
 	 * Rename
 	 */
-	_renameFolder: function(targetFolder)
+	_renameFolder: function($targetFolder)
 	{
-		var oldName = $.trim(targetFolder.text()),
+		var oldName = $.trim($targetFolder.text()),
 			newName = prompt(Craft.t('Rename folder'), oldName);
 
 		if (newName && newName != oldName)
 		{
 			var params = {
-				folderId: this._getFolderIdFromSourceKey(targetFolder.data('key')),
+				folderId: this._getFolderIdFromSourceKey($targetFolder.data('key')),
 				newName: newName
 			};
 
@@ -4241,7 +5804,7 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 				if (textStatus == 'success' && data.success)
 				{
-					targetFolder.text(data.newName);
+					$targetFolder.text(data.newName);
 				}
 
 				if (textStatus == 'success' && data.error)
@@ -4256,55 +5819,60 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 	/**
 	 * Prepare a source folder for children folder.
 	 *
-	 * @param parentFolder
+	 * @param $parentFolder
 	 * @private
 	 */
-	_prepareParentForChildren: function(parentFolder)
+	_prepareParentForChildren: function($parentFolder)
 	{
-		if (!this._hasSubfolders(parentFolder))
+		if (!this._hasSubfolders($parentFolder))
 		{
-			parentFolder.parent().addClass('expanded').append('<div class="toggle"></div><ul></ul>');
-			this.addListener(parentFolder.siblings('.toggle'), 'click', function(ev)
-			{
-				$(ev.currentTarget).parent().toggleClass('expanded');
-			});
-
+			$parentFolder.parent().addClass('expanded').append('<div class="toggle"></div><ul></ul>');
+			this.initSourceToggle($parentFolder);
 		}
 	},
 
 	/**
-	 * Add a subfolder to the parent folder at the correct spot.
+	 * Appends a subfolder to the parent folder at the correct spot.
 	 *
-	 * @param parentFolder
-	 * @param subFolder
+	 * @param $parentFolder
+	 * @param $subFolder
 	 * @private
 	 */
-
-	_addSubfolder: function(parentFolder, subFolder)
+	_appendSubfolder: function($parentFolder, $subFolder)
 	{
-		var existingChildren = parentFolder.siblings('ul').find('>li');
-		var folderInserted = false;
-		existingChildren.each(function()
+		var $subfolderList = $parentFolder.siblings('ul'),
+			$existingChildren = $subfolderList.children('li'),
+			subfolderLabel = $.trim($subFolder.children('a:first').text()),
+			folderInserted = false;
+
+		for (var i = 0; i < $existingChildren.length; i++)
 		{
-			if (!folderInserted && $.trim($(this).text()) > $.trim(subFolder.text()))
+			var $existingChild = $($existingChildren[i]);
+
+			if ($.trim($existingChild.children('a:first').text()) > subfolderLabel)
 			{
-				$(this).before(subFolder);
+				$existingChild.before($subFolder);
 				folderInserted = true;
+				break;
 			}
-		});
+		};
+
 		if (!folderInserted)
 		{
-			parentFolder.siblings('ul').append(subFolder);
+			$parentFolder.siblings('ul').append($subFolder);
 		}
+
+		this.$sidebar.trigger('resize');
 	},
 
-	_cleanUpTree: function(parentFolder)
+	_cleanUpTree: function($parentFolder)
 	{
-		if (parentFolder !== null && parentFolder.siblings('ul').find('li').length == 0)
+		if ($parentFolder !== null && $parentFolder.siblings('ul').children('li').length == 0)
 		{
-			parentFolder.siblings('ul').remove();
-			parentFolder.siblings('.toggle').remove();
-			parentFolder.parent().removeClass('expanded');
+			this.deinitSourceToggle($parentFolder);
+			$parentFolder.siblings('ul').remove();
+			$parentFolder.siblings('.toggle').remove();
+			$parentFolder.parent().removeClass('expanded');
 		}
 	},
 
@@ -4315,11 +5883,11 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 
 		if (this.settings.context == 'index')
 		{
-			$container = this.progressBar.$progressBar.parents('#content');
+			$container = this.progressBar.$progressBar.closest('#content');
 		}
 		else
 		{
-			$container = this.progressBar.$progressBar.parents('.main');
+			$container = this.progressBar.$progressBar.closest('.main');
 		}
 
 		var containerTop = $container.offset().top;
@@ -4335,10 +5903,10 @@ Craft.AssetIndex = Craft.BaseElementIndex.extend(
 		{
 			offset = ($container.height() / 2) - 6;
 		}
+
 		this.progressBar.$progressBar.css({
 			top: offset
 		});
-
 	}
 
 });
@@ -4354,18 +5922,19 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 {
 	requestId: 0,
 	hud: null,
-	fieldId: 0,
 	uploader: null,
 	progressBar: null,
 
-	init: function(id, name, elementType, sources, criteria, sourceElementId, limit, storageKey, fieldId)
+	init: function()
 	{
-		this.base(id, name, elementType, sources, criteria, sourceElementId, limit, storageKey);
-		this.fieldId = fieldId;
-		this._attachDragEvents();
+		this.base.apply(this, arguments);
+		this._attachUploader();
 	},
 
-	_attachDragEvents: function()
+	/**
+	 * Attach the uploader with drag event handler
+	 */
+	_attachUploader: function()
 	{
 		this.progressBar = new Craft.ProgressBar($('<div class="progress-shade"></div>').appendTo(this.$container));
 
@@ -4373,15 +5942,24 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 			url: Craft.getActionUrl('assets/expressUpload'),
 			dropZone: this.$container,
 			formData: {
-				fieldId: this.fieldId,
-				entryId: $('input[name=entryId]').val()
+				fieldId: this.settings.fieldId,
+				elementId: this.settings.sourceElementId
 			}
 		};
 
-		if (typeof this.criteria.kind != "undefined")
+		// If CSRF protection isn't enabled, these won't be defined.
+		if (typeof Craft.csrfTokenName !== 'undefined' && typeof Craft.csrfTokenValue !== 'undefined')
 		{
-			options.allowedKinds = this.criteria.kind;
+			// Add the CSRF token
+			options.formData[Craft.csrfTokenName] = Craft.csrfTokenValue;
 		}
+
+		if (typeof this.settings.criteria.kind != "undefined")
+		{
+			options.allowedKinds = this.settings.criteria.kind;
+		}
+
+		options.canAddMoreFiles = $.proxy(this, 'canAddMoreFiles');
 
 		options.events = {};
 		options.events.fileuploadstart = $.proxy(this, '_onUploadStart');
@@ -4393,25 +5971,20 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 
 	/**
 	 * Add the freshly uploaded file to the input field.
-	 *
-	 * @param element
 	 */
 	selectUploadedFile: function(element)
 	{
 		// Check if we're able to add new elements
-		if (this.limit)
+		if (!this.canAddMoreElements())
 		{
-			if (this.totalElements + 1 == this.limit)
-			{
-				return;
-			}
+			return;
 		}
 
 		var $newElement = element.$element;
 
 		// Make a couple tweaks
 		$newElement.addClass('removable');
-		$newElement.prepend('<input type="hidden" name="'+this.name+'[]" value="'+element.id+'">' +
+		$newElement.prepend('<input type="hidden" name="'+this.settings.name+'[]" value="'+element.id+'">' +
 			'<a class="delete icon" title="'+Craft.t('Remove')+'"></a>');
 
 		$newElement.appendTo(this.$elementsContainer);
@@ -4422,30 +5995,15 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 
 		var animateCss = {};
 		animateCss['margin-'+Craft.left] = 0;
-		this.$addElementBtn.animate(animateCss, 'fast');
+		this.$addElementBtn.velocity(animateCss, 'fast');
 
-		this.$elements = this.$elements.add($newElement);
-		this.initElements($newElement);
+		this.addElements($newElement);
 
-		this.totalElements ++;
-
-		if (this.limit && this.totalElements == this.limit)
-		{
-			this.$addElementBtn.addClass('disabled');
-		}
-
-		if (this.modal)
-		{
-			this.modal.elementIndex.rememberDisabledElementId(element.id);
-		}
-
+		delete this.modal;
 	},
 
 	/**
 	 * On upload start.
-	 *
-	 * @param event
-	 * @private
 	 */
 	_onUploadStart: function(event)
 	{
@@ -4460,10 +6018,6 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 
 	/**
 	 * On upload progress.
-	 *
-	 * @param event
-	 * @param data
-	 * @private
 	 */
 	_onUploadProgress: function(event, data)
 	{
@@ -4473,17 +6027,19 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 
 	/**
 	 * On a file being uploaded.
-	 *
-	 * @param event
-	 * @param data
-	 * @private
 	 */
 	_onUploadComplete: function(event, data)
 	{
-		var html = $(data.result.html);
-		$('head').append(data.result.css);
-
-		this.selectUploadedFile(Craft.getElementInfo(html));
+		if (data.result.error)
+		{
+			alert(data.result.error);
+		}
+		else
+		{
+			var html = $(data.result.html);
+			Craft.appendHeadHtml(data.result.headHtml);
+			this.selectUploadedFile(Craft.getElementInfo(html));
+		}
 
 		// Last file
 		if (this.uploader.isLastUpload())
@@ -4491,8 +6047,14 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 			this.progressBar.hideProgressBar();
 			this.$container.removeClass('uploading');
 		}
+	},
 
-		this.forceModalRefresh();
+	/**
+	 * We have to take into account files about to be added as well
+	 */
+	canAddMoreFiles: function (slotsTaken)
+	{
+		return (!this.settings.limit || this.$elements.length  + slotsTaken < this.settings.limit);
 	}
 });
 
@@ -4503,7 +6065,6 @@ Craft.AssetSelectInput = Craft.BaseElementSelectInput.extend(
 Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 {
 	$selectTransformBtn: null,
-	$transformSpinner: null,
 	_selectedTransform: null,
 
 	init: function(elementType, settings)
@@ -4575,19 +6136,20 @@ Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 			$('<li><a data-transform="'+Craft.AssetSelectorModal.transforms[i].handle+'">'+Craft.AssetSelectorModal.transforms[i].name+'</a></li>').appendTo($menuList);
 		}
 
-		new Garnish.MenuBtn(this.$selectTransformBtn, {
+		var MenuButton = new Garnish.MenuBtn(this.$selectTransformBtn, {
 			onOptionSelect: $.proxy(this, 'onSelectTransform')
 		});
+		MenuButton.disable();
 
-		this.$transformSpinner = $('<div class="spinner hidden" style="margin-'+Craft.right+': -24px;"/>').insertAfter($btnGroup);
+		this.$selectTransformBtn.data('menuButton', MenuButton);
 	},
 
 	onSelectionChange: function(ev)
 	{
-		if (this.elementSelect.totalSelected && this.settings.canSelectImageTransforms && Craft.AssetSelectorModal.transforms.length)
+		if (this.elementIndex.elementSelect.totalSelected && this.settings.canSelectImageTransforms && Craft.AssetSelectorModal.transforms.length)
 		{
 			var allowTransforms = true,
-				$selectedItems = this.elementSelect.getSelectedItems();
+				$selectedItems = this.elementIndex.elementSelect.getSelectedItems();
 
 			for (var i = 0; i < $selectedItems.length; i++)
 			{
@@ -4603,12 +6165,29 @@ Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 			var allowTransforms = false;
 		}
 
+		if (this.$selectTransformBtn)
+		{
+			var MenuBtn = this.$selectTransformBtn.data('menuButton');
+		}
+		else
+		{
+			var MenuBtn = null;
+		}
+
 		if (allowTransforms)
 		{
+			if (MenuBtn)
+			{
+				MenuBtn.enable();
+			}
 			this.$selectTransformBtn.removeClass('disabled');
 		}
 		else if (this.$selectTransformBtn)
 		{
+			if (MenuBtn)
+			{
+				MenuBtn.disable();
+			}
 			this.$selectTransformBtn.addClass('disabled');
 		}
 
@@ -4629,7 +6208,7 @@ Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 			Craft.AssetSelectorModal.transformUrls[transform] = {};
 		}
 
-		var $selectedItems = this.elementSelect.getSelectedItems(),
+		var $selectedItems = this.elementIndex.elementSelect.getSelectedItems(),
 			imageIdsWithMissingUrls = [];
 
 		for (var i = 0; i < $selectedItems.length; i++)
@@ -4645,10 +6224,11 @@ Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 
 		if (imageIdsWithMissingUrls.length)
 		{
-			this.$transformSpinner.removeClass('hidden');
+			this.showFooterSpinner();
+
 			this.fetchMissingTransformUrls(imageIdsWithMissingUrls, transform, $.proxy(function()
 			{
-				this.$transformSpinner.addClass('hidden');
+				this.hideFooterSpinner();
 				this.selectImagesWithTransform(transform);
 			}, this));
 		}
@@ -4734,22 +6314,499 @@ Craft.AssetSelectorModal = Craft.BaseElementSelectorModal.extend(
 Craft.registerElementSelectorModalClass('Asset', Craft.AssetSelectorModal);
 
 
+(function($) {
+
+
+/**
+ * AuthManager class
+ */
+Craft.AuthManager = Garnish.Base.extend(
+{
+	checkAuthTimeoutTimer: null,
+	showLoginModalTimer: null,
+	decrementLogoutWarningInterval: null,
+
+	showingLogoutWarningModal: false,
+	showingLoginModal: false,
+
+	logoutWarningModal: null,
+	loginModal: null,
+
+	$logoutWarningPara: null,
+	$passwordInput: null,
+	$passwordSpinner: null,
+	$loginBtn: null,
+	$loginErrorPara: null,
+
+	submitLoginIfLoggedOut: false,
+
+	/**
+	 * Init
+	 */
+	init: function()
+	{
+		this.updateAuthTimeout(Craft.authTimeout);
+	},
+
+	/**
+	 * Sets a timer for the next time to check the auth timeout.
+	 */
+	setCheckAuthTimeoutTimer: function(seconds)
+	{
+		if (this.checkAuthTimeoutTimer)
+		{
+			clearTimeout(this.checkAuthTimeoutTimer);
+		}
+
+		this.checkAuthTimeoutTimer = setTimeout($.proxy(this, 'checkAuthTimeout'), seconds*1000);
+	},
+
+	/**
+	 * Pings the server to see how many seconds are left on the current user session, and handles the response.
+	 */
+	checkAuthTimeout: function(extendSession)
+	{
+		$.ajax({
+			url: Craft.getActionUrl('users/getAuthTimeout', (extendSession ? null : 'dontExtendSession=1')),
+			type: 'GET',
+			complete: $.proxy(function(jqXHR, textStatus)
+			{
+				if (textStatus == 'success')
+				{
+					this.updateAuthTimeout(jqXHR.responseJSON.timeout);
+
+					this.submitLoginIfLoggedOut = false;
+
+					if (typeof jqXHR.responseJSON.csrfTokenValue !== 'undefined' && typeof Craft.csrfTokenValue !== 'undefined')
+					{
+						Craft.csrfTokenValue = jqXHR.responseJSON.csrfTokenValue;
+					}
+				}
+				else
+				{
+					this.updateAuthTimeout(-1);
+				}
+			}, this)
+		});
+	},
+
+	/**
+	 * Updates our record of the auth timeout, and handles it.
+	 */
+	updateAuthTimeout: function(authTimeout)
+	{
+		this.authTimeout = parseInt(authTimeout);
+
+		// Are we within the warning window?
+		if (this.authTimeout != -1 && this.authTimeout < Craft.AuthManager.minSafeAuthTimeout)
+		{
+			// Is there still time to renew the session?
+			if (this.authTimeout)
+			{
+				if (!this.showingLogoutWarningModal)
+				{
+					// Show the warning modal
+					this.showLogoutWarningModal();
+				}
+
+				// Will the session expire before the next checkup?
+				if (this.authTimeout < Craft.AuthManager.checkInterval)
+				{
+					if (this.showLoginModalTimer)
+					{
+						clearTimeout(this.showLoginModalTimer);
+					}
+
+					this.showLoginModalTimer = setTimeout($.proxy(this, 'showLoginModal'), this.authTimeout*1000);
+				}
+			}
+			else
+			{
+				if (this.showingLoginModal)
+				{
+					if (this.submitLoginIfLoggedOut)
+					{
+						this.submitLogin();
+					}
+				}
+				else
+				{
+					// Show the login modal
+					this.showLoginModal();
+				}
+			}
+
+			this.setCheckAuthTimeoutTimer(Craft.AuthManager.checkInterval);
+		}
+		else
+		{
+			// Everything's good!
+			this.hideLogoutWarningModal();
+			this.hideLoginModal();
+
+			// Will be be within the minSafeAuthTimeout before the next update?
+			if (this.authTimeout != -1 && this.authTimeout < (Craft.AuthManager.minSafeAuthTimeout + Craft.AuthManager.checkInterval))
+			{
+				this.setCheckAuthTimeoutTimer(this.authTimeout - Craft.AuthManager.minSafeAuthTimeout + 1);
+			}
+			else
+			{
+				this.setCheckAuthTimeoutTimer(Craft.AuthManager.checkInterval);
+			}
+		}
+	},
+
+	/**
+	 * Shows the logout warning modal.
+	 */
+	showLogoutWarningModal: function()
+	{
+		if (this.showingLoginModal)
+		{
+			this.hideLoginModal(true);
+			var quickShow = true;
+		}
+		else
+		{
+			var quickShow = false;
+		}
+
+		this.showingLogoutWarningModal = true;
+
+		if (!this.logoutWarningModal)
+		{
+			var $form = $('<form id="logoutwarningmodal" class="modal alert fitted"/>'),
+				$body = $('<div class="body"/>').appendTo($form),
+				$buttons = $('<div class="buttons right"/>').appendTo($body),
+				$logoutBtn = $('<div class="btn">'+Craft.t('Log out now')+'</div>').appendTo($buttons),
+				$renewSessionBtn = $('<input type="submit" class="btn submit" value="'+Craft.t('Keep me logged in')+'" />').appendTo($buttons);
+
+			this.$logoutWarningPara = $('<p/>').prependTo($body);
+
+			this.logoutWarningModal = new Garnish.Modal($form, {
+				autoShow: false,
+				closeOtherModals: false,
+				hideOnEsc: false,
+				hideOnShadeClick: false,
+				shadeClass: 'modal-shade dark',
+				onFadeIn: function()
+				{
+					if (!Garnish.isMobileBrowser(true))
+					{
+						// Auto-focus the renew button
+						setTimeout(function() {
+							$renewSessionBtn.focus();
+						}, 100);
+					}
+				}
+			});
+
+			this.addListener($logoutBtn, 'activate', 'logout');
+			this.addListener($form, 'submit', 'renewSession');
+		}
+
+		if (quickShow)
+		{
+			this.logoutWarningModal.quickShow();
+		}
+		else
+		{
+			this.logoutWarningModal.show();
+		}
+
+		this.updateLogoutWarningMessage();
+
+		this.decrementLogoutWarningInterval = setInterval($.proxy(this, 'decrementLogoutWarning'), 1000);
+	},
+
+	/**
+	 * Updates the logout warning message indicating that the session is about to expire.
+	 */
+	updateLogoutWarningMessage: function()
+	{
+		this.$logoutWarningPara.text(Craft.t('Your session will expire in {time}.', {
+			time: Craft.secondsToHumanTimeDuration(this.authTimeout)
+		}));
+
+		this.logoutWarningModal.updateSizeAndPosition();
+	},
+
+	decrementLogoutWarning: function()
+	{
+		if (this.authTimeout > 0)
+		{
+			this.authTimeout--;
+			this.updateLogoutWarningMessage();
+		}
+
+		if (this.authTimeout == 0)
+		{
+			clearInterval(this.decrementLogoutWarningInterval);
+		}
+	},
+
+	/**
+	 * Hides the logout warning modal.
+	 */
+	hideLogoutWarningModal: function(quick)
+	{
+		this.showingLogoutWarningModal = false;
+
+		if (this.logoutWarningModal)
+		{
+			if (quick)
+			{
+				this.logoutWarningModal.quickHide();
+			}
+			else
+			{
+				this.logoutWarningModal.hide();
+			}
+
+			if (this.decrementLogoutWarningInterval)
+			{
+				clearInterval(this.decrementLogoutWarningInterval);
+			}
+		}
+	},
+
+	/**
+	 * Shows the login modal.
+	 */
+	showLoginModal: function()
+	{
+		if (this.showingLogoutWarningModal)
+		{
+			this.hideLogoutWarningModal(true);
+			var quickShow = true;
+		}
+		else
+		{
+			var quickShow = false;
+		}
+
+		this.showingLoginModal = true;
+
+		if (!this.loginModal)
+		{
+			var $form = $('<form id="loginmodal" class="modal alert fitted"/>'),
+				$body = $('<div class="body"><h2>'+Craft.t('Your session has ended.')+'</h2><p>'+Craft.t('Enter your password to log back in.')+'</p></div>').appendTo($form),
+				$inputContainer = $('<div class="inputcontainer">').appendTo($body),
+				$inputsTable = $('<table class="inputs fullwidth"/>').appendTo($inputContainer),
+				$inputsRow = $('<tr/>').appendTo($inputsTable),
+				$passwordCell = $('<td/>').appendTo($inputsRow),
+				$buttonCell = $('<td class="thin"/>').appendTo($inputsRow),
+				$passwordWrapper = $('<div class="passwordwrapper"/>').appendTo($passwordCell);
+
+			this.$passwordInput = $('<input type="password" class="text password fullwidth" placeholder="'+Craft.t('Password')+'"/>').appendTo($passwordWrapper);
+			this.$passwordSpinner = $('<div class="spinner hidden"/>').appendTo($inputContainer);
+			this.$loginBtn = $('<input type="submit" class="btn submit disabled" value="'+Craft.t('Login')+'" />').appendTo($buttonCell);
+			this.$loginErrorPara = $('<p class="error"/>').appendTo($body);
+
+			this.loginModal = new Garnish.Modal($form, {
+				autoShow: false,
+				closeOtherModals: false,
+				hideOnEsc: false,
+				hideOnShadeClick: false,
+				shadeClass: 'modal-shade dark',
+				onFadeIn: $.proxy(function()
+				{
+					if (!Garnish.isMobileBrowser(true))
+					{
+						// Auto-focus the password input
+						setTimeout($.proxy(function() {
+							this.$passwordInput.focus();
+						}, this), 100);
+					}
+				}, this),
+				onFadeOut: $.proxy(function()
+				{
+					this.$passwordInput.val('');
+				}, this)
+			});
+
+			new Craft.PasswordInput(this.$passwordInput, {
+				onToggleInput: $.proxy(function($newPasswordInput) {
+					this.$passwordInput = $newPasswordInput;
+				}, this)
+			});
+
+			this.addListener(this.$passwordInput, 'textchange', 'validatePassword');
+			this.addListener($form, 'submit', 'login');
+		}
+
+		if (quickShow)
+		{
+			this.loginModal.quickShow();
+		}
+		else
+		{
+			this.loginModal.show();
+		}
+	},
+
+	/**
+	 * Hides the login modal.
+	 */
+	hideLoginModal: function(quick)
+	{
+		this.showingLoginModal = false;
+
+		if (this.loginModal)
+		{
+			if (quick)
+			{
+				this.loginModal.quickHide();
+			}
+			else
+			{
+				this.loginModal.hide();
+			}
+		}
+	},
+
+	logout: function()
+	{
+		var url = Craft.getActionUrl('users/logout');
+
+		$.get(url, $.proxy(function()
+		{
+			Craft.redirectTo('');
+		}, this));
+	},
+
+	renewSession: function(ev)
+	{
+		if (ev)
+		{
+			ev.preventDefault();
+		}
+
+		this.hideLogoutWarningModal()
+		this.checkAuthTimeout(true);
+	},
+
+	validatePassword: function()
+	{
+		if (this.$passwordInput.val().length >= 6)
+		{
+			this.$loginBtn.removeClass('disabled');
+			return true;
+		}
+		else
+		{
+			this.$loginBtn.addClass('disabled');
+			return false;
+		}
+	},
+
+	login: function(ev)
+	{
+		if (ev)
+		{
+			ev.preventDefault();
+		}
+
+		if (this.validatePassword())
+		{
+			this.$passwordSpinner.removeClass('hidden');
+			this.clearLoginError();
+
+			if (typeof Craft.csrfTokenValue != 'undefined')
+			{
+				// Check the auth status one last time before sending this off,
+				// in case the user has already logged back in from another window/tab
+				this.submitLoginIfLoggedOut = true;
+				this.checkAuthTimeout();
+			}
+			else
+			{
+				this.submitLogin();
+			}
+		}
+	},
+
+	submitLogin: function()
+	{
+		var data = {
+			loginName: Craft.username,
+			password: this.$passwordInput.val()
+		};
+
+		Craft.postActionRequest('users/login', data, $.proxy(function(response, textStatus)
+		{
+			this.$passwordSpinner.addClass('hidden');
+
+			if (textStatus == 'success')
+			{
+				if (response.success)
+				{
+					this.hideLoginModal();
+					this.checkAuthTimeout();
+				}
+				else
+				{
+					this.showLoginError(response.error);
+					Garnish.shake(this.loginModal.$container);
+
+					if (!Garnish.isMobileBrowser(true))
+					{
+						this.$passwordInput.focus();
+					}
+				}
+			}
+			else
+			{
+				this.showLoginError();
+			}
+
+		}, this));
+	},
+
+	showLoginError: function(error)
+	{
+		if (error === null || typeof error == 'undefined')
+		{
+			error = Craft.t('An unknown error occurred.');
+		}
+
+		this.$loginErrorPara.text(error);
+		this.loginModal.updateSizeAndPosition();
+	},
+
+	clearLoginError: function()
+	{
+		this.showLoginError('');
+	}
+},
+{
+	checkInterval: 60,
+	minSafeAuthTimeout: 120
+});
+
+
+})(jQuery);
+
+
 /**
  * Category index class
  */
 Craft.CategoryIndex = Craft.BaseElementIndex.extend(
 {
-	groupId: null,
-	structure: null,
+	$newCategoryBtn: null,
 
-	$noCats: null,
-	$addCategoryForm: null,
-	$addCategoryInput: null,
-	$addCategorySpinner: null,
+	onAfterHtmlInit: function()
+	{
+		// Get the New Category button
+		this.$newCategoryBtn = this.$sidebar.find('> .buttons > .btn');
+
+		this.base();
+	},
 
 	getDefaultSourceKey: function()
 	{
-		if (this.settings.context == 'index' && typeof defaultGroupHandle != 'undefined')
+		// Did they request a specific category group in the URL?
+		if (this.settings.context == 'index' && typeof defaultGroupHandle != typeof undefined)
 		{
 			for (var i = 0; i < this.$sources.length; i++)
 			{
@@ -4767,148 +6824,29 @@ Craft.CategoryIndex = Craft.BaseElementIndex.extend(
 
 	onSelectSource: function()
 	{
-		if (this.settings.context == 'index' && typeof history != 'undefined')
+		if (this.settings.context == 'index')
 		{
-			var uri = 'categories/'+this.$source.data('handle');
+			// Get the handle of the selected source
+			var handle = this.$source.data('handle');
 
-			history.replaceState({}, '', Craft.getUrl(uri));
+			// Update the URL
+			if (typeof history != typeof undefined)
+			{
+				var uri = 'categories';
+
+				if (handle)
+				{
+					uri += '/'+handle;
+				}
+
+				history.replaceState({}, '', Craft.getUrl(uri));
+			}
+
+			// Update the New Category button
+			this.$newCategoryBtn.attr('href', Craft.getUrl('categories/'+handle+'/new'));
 		}
 
 		this.base();
-	},
-
-	getViewModesForSource: function()
-	{
-		return [
-			{ mode: 'structure', title: Craft.t('Display hierarchically'), icon: 'structure' }
-		];
-	},
-
-	onUpdateElements: function(append)
-	{
-		// Make sure it's not table view (for a search)
-		if (this.getSelectedSourceState('mode') == 'structure')
-		{
-			this.$noCats = this.$elements.children('.nocats');
-			this.$addCategoryForm = this.$elements.children('form');
-			this.$addCategoryInput = this.$addCategoryForm.find('input[type=text]');
-			this.$addCategorySpinner = this.$addCategoryForm.find('.spinner');
-
-			this.structure = this.$elementContainer.data('structure');
-			this.groupId = this.$addCategoryForm.data('group-id');
-
-			this.addListener(this.$addCategoryForm, 'submit', 'onAddCategorySubmit');
-		}
-
-		this.initElements(this.$elementContainer.find('.element'));
-
-		this.base(append);
-	},
-
-	initElements: function($elements)
-	{
-		if (this.settings.context == 'index')
-		{
-			this.addListener($elements, 'dblclick', function(ev)
-			{
-				Craft.showElementEditor($(ev.currentTarget));
-			});
-
-			this.addListener($elements.siblings('.delete'), 'click', 'onDeleteClick');
-		}
-	},
-
-	onDeleteClick: function(ev)
-	{
-		var $element = $(ev.currentTarget).siblings('.element'),
-			info = Craft.getElementInfo($element);
-
-		if (confirm(Craft.t('Are you sure you want to delete “{name}” and its descendants?', { name: info.label })))
-		{
-			Craft.postActionRequest('categories/deleteCategory', { categoryId: info.id }, $.proxy(function(response, textStatus)
-			{
-				if (textStatus == 'success')
-				{
-					if (response.success)
-					{
-						this.structure.removeElement($element);
-						Craft.cp.displayNotice(Craft.t('“{name}” deleted.', { name: info.label }));
-
-						// Was that the last one?
-						if (!this.$elementContainer.find('.element').not($element).length)
-						{
-							this.$noCats.removeClass('hidden');
-						}
-					}
-					else
-					{
-						Craft.cp.displayError(Craft.t('Couldn’t delete “{name}”.', { name: info.label }));
-					}
-				}
-
-			}, this));
-		}
-	},
-
-	onAddCategorySubmit: function(ev)
-	{
-		ev.preventDefault();
-
-		this.$addCategorySpinner.removeClass('hidden');
-
-		var data = {
-			title: this.$addCategoryInput.val(),
-			groupId: this.groupId
-		};
-
-		Craft.postActionRequest('categories/createCategory', data, $.proxy(function(response, textStatus) {
-
-			this.$addCategorySpinner.addClass('hidden');
-
-			if (textStatus == 'success')
-			{
-				this.$noCats.addClass('hidden');
-
-				var $element = $('<div class="element" data-editable="1"' +
-					'data-id="'+response.id+'" ' +
-					'data-locale="'+Craft.locale+'" ' +
-					'data-status="'+response.status+'" ' +
-					'data-label="'+response.title+'" ' +
-					'data-url="'+response.url+'">' +
-					'<div class="label">' +
-						'<span class="status '+response.status+'"></span>' +
-						'<span class="title">'+response.title+'</span>' +
-					'</div>' +
-				'</div>');
-
-				// Add it to the structure
-				this.structure.addElement($element);
-
-				// Add the delete button
-				var $row = $element.parent();
-				$('<a class="delete icon" title="'+Craft.t('Delete')+'"></a>').appendTo($row);
-
-				// Initialize it
-				this.initElements($element);
-
-				// Clear out the "Add a Category" input
-				this.$addCategoryInput.val('');
-
-				// Animate the new category into place
-				var css = {
-					top: 24
-				};
-				css[Craft.left] = -5;
-
-				var animateCss = {
-					top: 0
-				};
-				animateCss[Craft.left] = 0;
-
-				$element.css(css).animate(animateCss, 'fast');
-			}
-
-		}, this));
 	}
 
 });
@@ -4922,83 +6860,133 @@ Craft.registerElementIndexClass('Category', Craft.CategoryIndex);
  */
 Craft.CategorySelectInput = Craft.BaseElementSelectInput.extend(
 {
-	selectable: false,
-	sortable: false,
-
-	init: function()
+	setSettings: function()
 	{
 		this.base.apply(this, arguments);
-		this.addLastClasses();
+		this.settings.sortable = false;
+	},
+
+	getModalSettings: function()
+	{
+		var settings = this.base();
+		settings.hideOnSelect = false;
+		return settings;
 	},
 
 	getElements: function()
 	{
-		return this.$elementsContainer.find('li:not(.hidden) > .row .element');
+		return this.$elementsContainer.find('.element');
 	},
 
-	initElements: function($elements)
+	onModalSelect: function(elements)
 	{
-		this.initCheckboxes($elements.siblings('.checkbox'));
-	},
+		// Disable the modal
+		this.modal.disable();
+		this.modal.disableCancelBtn();
+		this.modal.disableSelectBtn();
+		this.modal.showFooterSpinner();
 
-	initCheckboxes: function($checkboxes)
-	{
-		this.removeListener($checkboxes, 'change');
-		this.addListener($checkboxes, 'change', 'onCheckboxChange');
-	},
+		// Get the new category HTML
+		var selectedCategoryIds = this.getSelectedElementIds();
 
-	onCheckboxChange: function(ev)
-	{
-		var $checkbox = $(ev.currentTarget);
-
-		if ($checkbox.prop('checked'))
+		for (var i = 0; i < elements.length; i++)
 		{
-			// Make sure everything leading up to this is checked
-			$checkbox.closest('li').parentsUntil(this.$elementsContainer, 'li').children('.row').find('.checkbox').prop('checked', true);
+			selectedCategoryIds.push(elements[i].id);
+		}
+
+		var data = {
+			categoryIds: selectedCategoryIds,
+			locale:      elements[0].locale,
+			id:          this.settings.id,
+			name:        this.settings.name,
+			limit:       this.settings.limit,
+		};
+
+		Craft.postActionRequest('elements/getCategoriesInputHtml', data, $.proxy(function(response, textStatus)
+		{
+			this.modal.enable();
+			this.modal.enableCancelBtn();
+			this.modal.enableSelectBtn();
+			this.modal.hideFooterSpinner();
+
+			if (textStatus == 'success')
+			{
+				var $newInput = $(response.html),
+					$newElementsContainer = $newInput.children('.elements');
+
+				this.$elementsContainer.replaceWith($newElementsContainer);
+				this.$elementsContainer = $newElementsContainer;
+				this.resetElements();
+
+				for (var i = 0; i < elements.length; i++)
+				{
+					var element = elements[i],
+						$element = this.getElementById(element.id);
+
+					if ($element)
+					{
+						this.animateElementIntoPlace(element.$element, $element);
+					}
+				}
+
+				this.updateDisabledElementsInModal();
+				this.modal.hide();
+				this.onSelectElements();
+			}
+		}, this));
+	},
+
+	removeElement: function($element)
+	{
+		// Find any descendants this category might have
+		var $allCategories = $element.add($element.parent().siblings('ul').find('.element'));
+
+		// Remove our record of them all at once
+		this.removeElements($allCategories);
+
+		// Animate them away one at a time
+		for (var i = 0; i < $allCategories.length; i++)
+		{
+			this._animateCategoryAway($allCategories, i);
+		}
+	},
+
+	_animateCategoryAway: function($allCategories, i)
+	{
+		// Is this the last one?
+		if (i == $allCategories.length - 1)
+		{
+			var callback = $.proxy(function()
+			{
+				var $li = $allCategories.first().parent().parent(),
+					$ul = $li.parent();
+
+				if ($ul[0] == this.$elementsContainer[0] || $li.siblings().length)
+				{
+					$li.remove();
+				}
+				else
+				{
+					$ul.remove();
+				}
+			}, this);
 		}
 		else
 		{
-			// Make sure everything under it is also unchecked
-			$checkbox.closest('li').children('ul').find('.checkbox').prop('checked', false);
+			callback = null;
 		}
-	},
 
-	createNewElement: function(elementInfo)
-	{
-		var $li = this.$container.find('#'+this.id+'-category-'+elementInfo.id),
-			$parentLis = $li.parentsUntil(this.$elementsContainer, 'li'),
-			$allLis = $li.add($parentLis),
-			$parentElements = $parentLis.children('.row').find('.element'),
-			$checkboxes = $allLis.children('.row').find('.checkbox'),
-			$element = $li.children('.row').find('.element');
+		var func = $.proxy(function() {
+			this.animateElementAway($allCategories.eq(i), callback);
+		}, this);
 
-		// Make sure all parent elements are visible and checked
-		$allLis.removeClass('hidden');
-		$checkboxes.prop('checked', true);
-
-		this.initCheckboxes($checkboxes);
-		this.$elements = this.$elements.add($parentElements);
-
-		return $element;
-	},
-
-	onSelectElements: function()
-	{
-		this.addLastClasses();
-		this.base.apply(this, arguments);
-	},
-
-	addLastClasses: function()
-	{
-		// Add the "last" class to the last visible <li>s in each <ul>
-		var $uls = this.$elementsContainer.find('ul');
-
-		for (var i = 0; i < $uls.length; i++)
+		if (i == 0)
 		{
-			var $ul = $($uls[i]);
-
-			$ul.children('.last').removeClass('last');
-			$ul.children(':not(.hidden):last').addClass('last');
+			func();
+		}
+		else
+		{
+			setTimeout(func, 100 * i);
 		}
 	}
 });
@@ -5022,6 +7010,8 @@ Craft.DataTableSorter = Garnish.DragSort.extend(
 		settings.helper = $.proxy(this, 'getHelper');
 		settings.caboose = '<tr/>';
 		settings.axis = Garnish.Y_AXIS;
+		settings.magnetStrength = 4;
+		settings.helperLagBase = 1.5;
 
 		this.base($rows, settings);
 	},
@@ -5060,6 +7050,174 @@ Craft.DataTableSorter = Garnish.DragSort.extend(
 });
 
 
+(function($) {
+
+
+Craft.DeleteUserModal = Garnish.Modal.extend(
+{
+	id: null,
+	userId: null,
+
+	$deleteActionRadios: null,
+	$deleteSpinner: null,
+
+	userSelect: null,
+	_deleting: false,
+
+	init: function(userId, settings)
+	{
+		this.id = Math.floor(Math.random()*1000000000);
+		this.userId = userId;
+		settings = $.extend(Craft.DeleteUserModal.defaults, settings);
+
+		var $form = $(
+				'<form class="modal fitted deleteusermodal" method="post" accept-charset="UTF-8">' +
+					Craft.getCsrfInput() +
+					'<input type="hidden" name="action" value="users/deleteUser"/>' +
+					(!Garnish.isArray(this.userId) ? '<input type="hidden" name="userId" value="'+this.userId+'"/>' : '') +
+					'<input type="hidden" name="redirect" value="'+(Craft.edition == Craft.Pro ? 'users' : 'dashboard')+'"/>' +
+				'</form>'
+			).appendTo(Garnish.$bod),
+			$body = $(
+				'<div class="body">' +
+					'<p>'+Craft.t('What do you want to do with their content?')+'</p>' +
+					'<div class="options">' +
+						'<label><input type="radio" name="contentAction" value="transfer"/> '+Craft.t('Transfer it to:')+'</label>' +
+						'<div id="transferselect'+this.id+'" class="elementselect">' +
+							'<div class="elements"></div>' +
+							'<div class="btn add icon dashed">'+Craft.t('Choose a user')+'</div>' +
+						'</div>' +
+					'</div>' +
+					'<div>' +
+						'<label><input type="radio" name="contentAction" value="delete"/> '+Craft.t('Delete it')+'</label>' +
+					'</div>' +
+				'</div>'
+			).appendTo($form),
+			$buttons = $('<div class="buttons right"/>').appendTo($body),
+			$cancelBtn = $('<div class="btn">'+Craft.t('Cancel')+'</div>').appendTo($buttons);
+
+		this.$deleteActionRadios = $body.find('input[type=radio]');
+		this.$deleteSubmitBtn = $('<input type="submit" class="btn submit disabled" value="'+(Garnish.isArray(this.userId) ? Craft.t('Delete users') : Craft.t('Delete user'))+'" />').appendTo($buttons);
+		this.$deleteSpinner = $('<div class="spinner hidden"/>').appendTo($buttons);
+
+		if (Garnish.isArray(this.userId))
+		{
+			var idParam = ['and'];
+
+			for (var i = 0; i < this.userId.length; i++)
+			{
+				idParam.push('not '+this.userId[i]);
+			}
+		}
+		else
+		{
+			var idParam = 'not '+this.userId;
+		}
+
+		this.userSelect = new Craft.BaseElementSelectInput({
+			id: 'transferselect'+this.id,
+			name: 'transferContentTo',
+			elementType: 'User',
+			criteria: {
+				id: idParam
+			},
+			limit: 1,
+			modalSettings: {
+				closeOtherModals: false
+			},
+			onSelectElements: $.proxy(function()
+			{
+				this.updateSizeAndPosition();
+
+				if (!this.$deleteActionRadios.first().prop('checked'))
+				{
+					this.$deleteActionRadios.first().click();
+				}
+				else
+				{
+					this.validateDeleteInputs();
+				}
+			}, this),
+			onRemoveElements: $.proxy(this, 'validateDeleteInputs'),
+			selectable: false,
+			editable: false
+		});
+
+		this.addListener($cancelBtn, 'click', 'hide');
+
+		this.addListener(this.$deleteActionRadios, 'change', 'validateDeleteInputs');
+		this.addListener($form, 'submit', 'handleSubmit');
+
+		this.base($form, settings);
+	},
+
+	validateDeleteInputs: function()
+	{
+		var validates = false;
+
+		if (this.$deleteActionRadios.eq(0).prop('checked'))
+		{
+			validates = !!this.userSelect.totalSelected;
+		}
+		else if (this.$deleteActionRadios.eq(1).prop('checked'))
+		{
+			validates = true;
+		}
+
+		if (validates)
+		{
+			this.$deleteSubmitBtn.removeClass('disabled')
+		}
+		else
+		{
+			this.$deleteSubmitBtn.addClass('disabled')
+		}
+
+		return validates;
+	},
+
+	handleSubmit: function(ev)
+	{
+		if (this._deleting || !this.validateDeleteInputs())
+		{
+			ev.preventDefault();
+			return;
+		}
+
+		this.$deleteSubmitBtn.addClass('active');
+		this.$deleteSpinner.removeClass('hidden');
+		this.disable();
+		this.userSelect.disable();
+		this._deleting = true;
+
+		// Let the onSubmit callback prevent the form from getting submitted
+		if (this.settings.onSubmit() === false)
+		{
+			ev.preventDefault();
+		}
+	},
+
+	onFadeIn: function()
+	{
+		// Auto-focus the first radio
+		if (!Garnish.isMobileBrowser(true))
+		{
+			this.$deleteActionRadios.first().focus();
+		}
+
+		this.base();
+	}
+},
+{
+	defaults: {
+		onSubmit: $.noop
+	}
+});
+
+
+})(jQuery)
+
+
 /**
  * Editable table class
  */
@@ -5086,7 +7244,8 @@ Craft.EditableTable = Garnish.Base.extend(
 		this.$tbody = this.$table.children('tbody');
 
 		this.sorter = new Craft.DataTableSorter(this.$table, {
-			helperClass: 'editabletablesorthelper'
+			helperClass: 'editabletablesorthelper',
+			copyDraggeeInputValuesToHelper: true
 		});
 
 		var $rows = this.$tbody.children();
@@ -5297,6 +7456,8 @@ Craft.EditableTable.Row = Garnish.Base.extend(
 
 	onTextareaFocus: function(ev)
 	{
+		this.onTextareaHeightChange();
+
 		var $textarea = $(ev.currentTarget);
 
 		if ($textarea.data('ignoreNextFocus'))
@@ -5356,6 +7517,14 @@ Craft.EditableTable.Row = Garnish.Base.extend(
 		}
 
 		this.$textareas.css('min-height', tallestTextareaHeight);
+
+		// If the <td> is still taller, go with that insted
+		var tdHeight = this.$textareas.first().parent().height();
+
+		if (tdHeight > tallestTextareaHeight)
+		{
+			this.$textareas.css('min-height', tdHeight);
+		}
 	},
 
 	deleteRow: function()
@@ -5370,6 +7539,130 @@ Craft.EditableTable.Row = Garnish.Base.extend(
 {
 	numericKeyCodes: [9 /* (tab) */ , 8 /* (delete) */ , 37,38,39,40 /* (arrows) */ , 45,91 /* (minus) */ , 46,190 /* period */ , 48,49,50,51,52,53,54,55,56,57 /* (0-9) */ ]
 });
+
+
+(function($) {
+
+
+Craft.ElementActionTrigger = Garnish.Base.extend(
+{
+	maxLevels: null,
+	newChildUrl: null,
+	$trigger: null,
+	$selectedItems: null,
+	triggerEnabled: true,
+
+	init: function(settings)
+	{
+		this.setSettings(settings, Craft.ElementActionTrigger.defaults);
+
+		this.$trigger = $('#'+settings.handle+'-actiontrigger');
+
+		// Do we have a custom handler?
+		if (this.settings.activate)
+		{
+			// Prevent the element index's click handler
+			this.$trigger.data('custom-handler', true);
+
+			// Is this a custom trigger?
+			if (this.$trigger.prop('nodeName') == 'FORM')
+			{
+				this.addListener(this.$trigger, 'submit', 'handleTriggerActivation');
+			}
+			else
+			{
+				this.addListener(this.$trigger, 'click', 'handleTriggerActivation');
+			}
+		}
+
+		this.updateTrigger();
+		Craft.elementIndex.elementSelect.on('selectionChange', $.proxy(this, 'updateTrigger'));
+	},
+
+	updateTrigger: function()
+	{
+		// Ignore if the last element was just unselected
+		if (Craft.elementIndex.elementSelect.totalSelected == 0)
+		{
+			return;
+		}
+
+		if (this.validateSelection())
+		{
+			this.enableTrigger();
+		}
+		else
+		{
+			this.disableTrigger();
+		}
+	},
+
+	/**
+	 * Determines if this action can be performed on the currently selected elements.
+	 *
+	 * @return bool
+	 */
+	validateSelection: function()
+	{
+		var valid = true;
+		this.$selectedItems = Craft.elementIndex.elementSelect.$selectedItems;
+
+		if (!this.settings.batch && this.$selectedItems.length > 1)
+		{
+			valid = false;
+		}
+		else if (typeof this.settings.validateSelection == 'function')
+		{
+			valid = this.settings.validateSelection(this.$selectedItems);
+		}
+
+		return valid;
+	},
+
+	enableTrigger: function()
+	{
+		if (this.triggerEnabled)
+		{
+			return;
+		}
+
+		this.$trigger.removeClass('disabled');
+		this.triggerEnabled = true;
+	},
+
+	disableTrigger: function()
+	{
+		if (!this.triggerEnabled)
+		{
+			return;
+		}
+
+		this.$trigger.addClass('disabled');
+		this.triggerEnabled = false;
+	},
+
+	handleTriggerActivation: function(ev)
+	{
+		ev.preventDefault();
+		ev.stopPropagation();
+
+		if (this.triggerEnabled)
+		{
+			this.settings.activate(this.$selectedItems);
+		}
+	}
+},
+{
+	defaults: {
+		handle: null,
+		batch: true,
+		validateSelection: null,
+		activate: null
+	}
+});
+
+
+})(jQuery)
 
 
 /**
@@ -5501,8 +7794,14 @@ Craft.ElementEditor = Garnish.Base.extend(
 	{
 		this.locale = response.locale;
 
-		this.$fieldsContainer.html(response.html)
-		Craft.initUiElements(this.$fieldsContainer);
+		this.$fieldsContainer.html(response.html);
+
+		Garnish.requestAnimationFrame($.proxy(function()
+		{
+			Craft.appendHeadHtml(response.headHtml);
+			Craft.appendFootHtml(response.footHtml);
+			Craft.initUiElements(this.$fieldsContainer);
+		}, this));
 	},
 
 	saveElement: function(ev)
@@ -5524,7 +7823,18 @@ Craft.ElementEditor = Garnish.Base.extend(
 					if (this.locale == this.$element.data('locale'))
 					{
 						// Update the label
-						this.$element.find('.title').text(response.newTitle);
+						var $title = this.$element.find('.title'),
+							$a = $title.find('a');
+
+						if ($a.length && response.cpEditUrl)
+						{
+							$a.attr('href', response.cpEditUrl);
+							$a.text(response.newTitle);
+						}
+						else
+						{
+							$title.text(response.newTitle);
+						}
 					}
 
 					// Update Live Preview
@@ -5557,9 +7867,28 @@ Craft.ElementEditor = Garnish.Base.extend(
  */
 Craft.EntryIndex = Craft.BaseElementIndex.extend(
 {
+	$newEntryBtnGroup: null,
+	$newEntryMenuBtn: null,
+	newEntryLabel: null,
+
+	onAfterHtmlInit: function()
+	{
+		// Figure out if there are multiple sections that entries can be created in
+		this.$newEntryBtnGroup = this.$sidebar.find('> .buttons > .btngroup');
+
+		if (this.$newEntryBtnGroup.length)
+		{
+			this.$newEntryMenuBtn = this.$newEntryBtnGroup.children('.menubtn');
+			this.newEntryLabel = this.$newEntryMenuBtn.text();
+		}
+
+		this.base();
+	},
+
 	getDefaultSourceKey: function()
 	{
-		if (this.settings.context == 'index' && typeof defaultSectionHandle != 'undefined')
+		// Did they request a specific section in the URL?
+		if (this.settings.context == 'index' && typeof defaultSectionHandle != typeof undefined)
 		{
 			if (defaultSectionHandle == 'singles')
 			{
@@ -5582,10 +7911,23 @@ Craft.EntryIndex = Craft.BaseElementIndex.extend(
 		return this.base();
 	},
 
+	getDefaultSort: function()
+	{
+		if (Garnish.hasAttr(this.$source, 'data-has-structure'))
+		{
+			return ['structure', 'asc'];
+		}
+		else
+		{
+			return ['postDate', 'desc'];
+		}
+	},
+
 	onSelectSource: function()
 	{
-		if (this.settings.context == 'index' && typeof history != 'undefined')
+		if (this.settings.context == 'index')
 		{
+			// Get the handle of the selected source
 			if (this.$source.data('key') == 'singles')
 			{
 				var handle = 'singles';
@@ -5595,14 +7937,46 @@ Craft.EntryIndex = Craft.BaseElementIndex.extend(
 				var handle = this.$source.data('handle');
 			}
 
-			var uri = 'entries';
-
-			if (handle)
+			// Update the URL
+			if (typeof history != typeof undefined)
 			{
-				uri += '/'+handle;
+				var uri = 'entries';
+
+				if (handle)
+				{
+					uri += '/'+handle;
+				}
+
+				history.replaceState({}, '', Craft.getUrl(uri));
 			}
 
-			history.replaceState({}, '', Craft.getUrl(uri));
+			// Update the New Entry button
+			if (this.$newEntryBtnGroup.length)
+			{
+				if (handle == 'singles' || !handle)
+				{
+					if (this.$newEntryBtn)
+					{
+						this.$newEntryBtn.remove();
+						this.$newEntryBtn = null;
+						this.$newEntryMenuBtn.addClass('add icon').text(this.newEntryLabel);
+					}
+				}
+				else
+				{
+					if (this.$newEntryBtn)
+					{
+						this.$newEntryBtn.remove();
+					}
+					else
+					{
+						this.$newEntryMenuBtn.removeClass('add icon').text('');
+					}
+
+					this.$newEntryBtn = $('<a class="btn submit add icon"/>').text(this.newEntryLabel).prependTo(this.$newEntryBtnGroup);
+					this.$newEntryBtn.attr('href', Craft.getUrl('entries/'+handle+'/new'));
+				}
+			}
 		}
 
 		this.base();
@@ -5670,7 +8044,7 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 
 		this.$tabContainer = this.$container.children('.fld-tabs');
 		this.$unusedFieldContainer = this.$container.children('.unusedfields');
-		this.$newTabBtn = $('#newtabbtn');
+		this.$newTabBtn = this.$container.find('> .newtabbtn-container > .btn');
 		this.$allFields = this.$unusedFieldContainer.find('.fld-field');
 
 		// Set up the layout grids
@@ -5801,7 +8175,7 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		if (newName && newName != oldName)
 		{
 			$labelSpan.text(newName);
-			$tab.find('.id-input').attr('name', 'fieldLayout['+Craft.encodeUriComponent(newName)+'][]');
+			$tab.find('.id-input').attr('name', this.getFieldInputName(newName));
 		}
 	},
 
@@ -5841,7 +8215,7 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		else
 		{
 			$field.addClass('fld-required');
-			$('<input class="required-input" type="hidden" name="requiredFields[]" value="'+$field.data('id')+'">').appendTo($field);
+			$('<input class="required-input" type="hidden" name="'+this.settings.requiredFieldInputName+'" value="'+$field.data('id')+'">').appendTo($field);
 
 			setTimeout(function() {
 				$option.text(Craft.t('Make not required'));
@@ -5856,7 +8230,7 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		$field.remove();
 
 		this.removeFieldById(fieldId);
-		this.tabGrid.refreshCols();
+		this.tabGrid.refreshCols(true);
 	},
 
 	removeFieldById: function(fieldId)
@@ -5878,7 +8252,7 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		}
 		else
 		{
-			this.unusedFieldGrid.refreshCols();
+			this.unusedFieldGrid.refreshCols(true);
 		}
 	},
 
@@ -5903,6 +8277,11 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		this.tabDrag.addItems($tab);
 
 		this.initTab($tab);
+	},
+
+	getFieldInputName: function(tabName)
+	{
+		return this.settings.fieldInputName.replace(/__TAB_NAME__/g, Craft.encodeUriComponent(tabName));
 	}
 },
 {
@@ -5914,7 +8293,9 @@ Craft.FieldLayoutDesigner = Garnish.Base.extend(
 		snapToGrid: 30
 	},
 	defaults: {
-		customizableTabs: true
+		customizableTabs: true,
+		fieldInputName: 'fieldLayout[__TAB_NAME__][]',
+		requiredFieldInputName: 'requiredFields[]'
 	}
 });
 
@@ -6049,7 +8430,7 @@ Craft.FieldLayoutDesigner.BaseDrag = Garnish.Drag.extend(
 				}
 				else
 				{
-					this.designer.tabGrid.refreshCols();
+					this.designer.tabGrid.refreshCols(true);
 				}
 
 				this.setMidpoints();
@@ -6083,7 +8464,7 @@ Craft.FieldLayoutDesigner.BaseDrag = Garnish.Drag.extend(
 				}
 				else
 				{
-					this.designer.tabGrid.refreshCols();
+					this.designer.tabGrid.refreshCols(true);
 				}
 
 				this.setMidpoints();
@@ -6156,8 +8537,8 @@ Craft.FieldLayoutDesigner.BaseDrag = Garnish.Drag.extend(
 			visibility: 'hidden'
 		});
 
-		this.designer.tabGrid.refreshCols();
-		this.designer.unusedFieldGrid.refreshCols();
+		this.designer.tabGrid.refreshCols(true);
+		this.designer.unusedFieldGrid.refreshCols(true);
 
 		// return the helpers to the draggees
 		this.returnHelpersToDraggees();
@@ -6238,8 +8619,10 @@ Craft.FieldLayoutDesigner.TabDrag = Craft.FieldLayoutDesigner.BaseDrag.extend(
 
 			for (var i = 0; i < $fields.length; i++)
 			{
-				var $field = $($fields[i]);
-				$field.append('<input class="id-input" type="hidden" name="fieldLayout['+Craft.encodeUriComponent(tabName)+'][]" value="'+$field.data('id')+'">');
+				var $field = $($fields[i]),
+					inputName = this.designer.getFieldInputName(tabName);
+
+				$field.append('<input class="id-input" type="hidden" name="'+inputName+'" value="'+$field.data('id')+'">');
 			}
 
 			this.designer.fieldDrag.addItems($fields);
@@ -6336,7 +8719,7 @@ Craft.FieldLayoutDesigner.FieldDrag = Craft.FieldLayoutDesigner.BaseDrag.extend(
 		{
 			// Find the field's new tab name
 			var tabName = this.$insertion.parent().parent().find('.tab span').text(),
-				inputName = 'fieldLayout['+Craft.encodeUriComponent(tabName)+'][]';
+				inputName = this.designer.getFieldInputName(tabName);
 
 			if (this.draggingUnusedItem)
 			{
@@ -6428,6 +8811,10 @@ Craft.FieldToggle = Garnish.Base.extend(
 		{
 			return 'link';
 		}
+		else if (this.$toggle.prop('nodeName') == 'DIV' && this.$toggle.hasClass('lightswitch'))
+		{
+			return 'lightswitch';
+		}
 	},
 
 	findTargets: function()
@@ -6452,7 +8839,14 @@ Craft.FieldToggle = Garnish.Base.extend(
 
 	getToggleVal: function()
 	{
-		return Garnish.getInputPostVal(this.$toggle);
+		if (this.type == 'lightswitch')
+		{
+			return this.$toggle.children('input').val();
+		}
+		else
+		{
+			return Garnish.getInputPostVal(this.$toggle);
+		}
 	},
 
 	onToggleChange: function()
@@ -6467,14 +8861,14 @@ Craft.FieldToggle = Garnish.Base.extend(
 		{
 			if (this.type == 'link')
 			{
-				var show = this.$toggle.hasClass('collapsed') || !this.$toggle.hasClass('expanded');
+				this.onToggleChange._show = this.$toggle.hasClass('collapsed') || !this.$toggle.hasClass('expanded');
 			}
 			else
 			{
-				var show = !!this.getToggleVal();
+				this.onToggleChange._show = !!this.getToggleVal();
 			}
 
-			if (show)
+			if (this.onToggleChange._show)
 			{
 				this.showTarget(this._$target);
 				this.hideTarget(this._$reverseTarget);
@@ -6484,6 +8878,8 @@ Craft.FieldToggle = Garnish.Base.extend(
 				this.hideTarget(this._$target);
 				this.showTarget(this._$reverseTarget);
 			}
+
+			delete this.onToggleChange._show;
 		}
 	},
 
@@ -6491,6 +8887,8 @@ Craft.FieldToggle = Garnish.Base.extend(
 	{
 		if ($target && $target.length)
 		{
+			this.showTarget._currentHeight = $target.height();
+
 			$target.removeClass('hidden');
 
 			if (this.type != 'select')
@@ -6502,12 +8900,29 @@ Craft.FieldToggle = Garnish.Base.extend(
 				}
 
 				$target.height('auto');
-				var height = $target.height();
-				$target.height(0);
-				$target.stop().animate({height: height}, 'fast', function() {
-					$target.height('auto');
+				this.showTarget._targetHeight = $target.height();
+				$target.css({
+					height: this.showTarget._currentHeight,
+					overflow: 'hidden'
 				});
+
+				$target.velocity('stop');
+
+				$target.velocity({ height: this.showTarget._targetHeight }, 'fast', function()
+				{
+					$target.css({
+						height: '',
+						overflow: ''
+					});
+				});
+
+				delete this.showTarget._targetHeight;
 			}
+
+			delete this.showTarget._currentHeight;
+
+			// Trigger a resize event in case there are any grids in the target that need to initialize
+			Garnish.$win.trigger('resize');
 		}
 	},
 
@@ -6527,7 +8942,10 @@ Craft.FieldToggle = Garnish.Base.extend(
 					this.$toggle.addClass('collapsed');
 				}
 
-				$target.stop().animate({height: 0}, 'fast', function() {
+				$target.css('overflow', 'hidden');
+				$target.velocity('stop');
+				$target.velocity({ height: 0 }, 'fast', function()
+				{
 					$target.addClass('hidden');
 				});
 			}
@@ -6574,104 +8992,155 @@ Craft.Grid = Garnish.Base.extend(
 
 		this.$items = this.$container.children(this.settings.itemSelector);
 		this.setItems();
-		this.refreshCols();
+		this.refreshCols(true);
 
 		// Adjust them when the container is resized
 		this.addListener(this.$container, 'resize', 'refreshCols');
 
 		// Trigger a window resize event in case anything needs to adjust itself, now that the items are layed out.
-		Garnish.$win.trigger('resize');
+		Garnish.requestAnimationFrame(function() {
+			Garnish.$win.trigger('resize');
+		});
 	},
 
 	addItems: function(items)
 	{
 		this.$items = $().add(this.$items.add(items));
 		this.setItems();
-		this.refreshCols();
+		this.refreshCols(true);
 	},
 
 	removeItems: function(items)
 	{
 		this.$items = $().add(this.$items.not(items));
 		this.setItems();
-		this.refreshCols();
+		this.refreshCols(true);
 	},
 
 	setItems: function()
 	{
+		this.setItems._ = {};
+
 		this.items = [];
 
-		for (var i = 0; i < this.$items.length; i++)
+		for (this.setItems._.i = 0; this.setItems._.i < this.$items.length; this.setItems._.i++)
 		{
-			this.items.push($(this.$items[i]));
+			this.items.push($(this.$items[this.setItems._.i]));
 		}
+
+		delete this.setItems._;
 	},
 
-	refreshCols: function()
+	refreshCols: function(force)
 	{
 		if (!this.items.length)
 		{
 			return;
 		}
 
+		this.refreshCols._ = {};
+
+		// Check to see if the grid is actually visible
+		this.refreshCols._.oldHeight = this.$container[0].style.height;
+		this.$container[0].style.height = 1;
+		this.refreshCols._.scrollHeight = this.$container[0].scrollHeight;
+		this.$container[0].style.height = this.refreshCols._.oldHeight;
+
+		if (this.refreshCols._.scrollHeight == 0)
+		{
+			delete this.refreshCols._;
+			return;
+		}
+
 		if (this.settings.cols)
 		{
-			this.totalCols = this.settings.cols;
+			this.refreshCols._.totalCols = this.settings.cols;
 		}
 		else
 		{
-			this.totalCols = Math.floor(this.$container.width() / this.settings.minColWidth);
+			this.refreshCols._.totalCols = Math.floor(this.$container.width() / this.settings.minColWidth);
 		}
 
-		if (this.totalCols == 0)
+		if (this.refreshCols._.totalCols == 0)
 		{
-			this.totalCols = 1;
+			this.refreshCols._.totalCols = 1;
 		}
+
+		// Same number of columns as before?
+		if (force !== true && this.totalCols === this.refreshCols._.totalCols)
+		{
+			delete this.refreshCols._;
+			return;
+		}
+
+		this.totalCols = this.refreshCols._.totalCols;
 
 		if (this.settings.fillMode == 'grid')
 		{
-			var itemIndex = 0;
+			this.refreshCols._.itemIndex = 0;
 
-			while (itemIndex < this.items.length)
+			while (this.refreshCols._.itemIndex < this.items.length)
 			{
 				// Append the next X items and figure out which one is the tallest
-				var tallestItemHeight = -1,
-					colIndex = 0;
+				this.refreshCols._.tallestItemHeight = -1;
+				this.refreshCols._.colIndex = 0;
 
-				for (var i = itemIndex; (i < itemIndex + this.totalCols && i < this.items.length); i++)
+				for (this.refreshCols._.i = this.refreshCols._.itemIndex; (this.refreshCols._.i < this.refreshCols._.itemIndex + this.totalCols && this.refreshCols._.i < this.items.length); this.refreshCols._.i++)
 				{
-					var itemHeight = this.items[i].height('auto').height();
-					if (itemHeight > tallestItemHeight)
+					this.refreshCols._.itemHeight = this.items[this.refreshCols._.i].height('auto').height();
+
+					if (this.refreshCols._.itemHeight > this.refreshCols._.tallestItemHeight)
 					{
-						tallestItemHeight = itemHeight;
+						this.refreshCols._.tallestItemHeight = this.refreshCols._.itemHeight;
 					}
 
-					colIndex++;
+					this.refreshCols._.colIndex++;
 				}
 
 				if (this.settings.snapToGrid)
 				{
-					var remainder = tallestItemHeight % this.settings.snapToGrid;
+					this.refreshCols._.remainder = this.refreshCols._.tallestItemHeight % this.settings.snapToGrid;
 
-					if (remainder)
+					if (this.refreshCols._.remainder)
 					{
-						tallestItemHeight += this.settings.snapToGrid - remainder;
+						this.refreshCols._.tallestItemHeight += this.settings.snapToGrid - this.refreshCols._.remainder;
 					}
 				}
 
 				// Now set their heights to the tallest one
-				for (var i = itemIndex; (i < itemIndex + this.totalCols && i < this.items.length); i++)
+				for (this.refreshCols._.i = this.refreshCols._.itemIndex; (this.refreshCols._.i < this.refreshCols._.itemIndex + this.totalCols && this.refreshCols._.i < this.items.length); this.refreshCols._.i++)
 				{
-					this.items[i].height(tallestItemHeight);
+					this.items[this.refreshCols._.i].height(this.refreshCols._.tallestItemHeight);
 				}
 
-				// set the itemIndex pointer to the next one up
-				itemIndex += this.totalCols;
+				// set the this.refreshCols._.itemIndex pointer to the next one up
+				this.refreshCols._.itemIndex += this.totalCols;
 			}
 		}
 		else
 		{
 			this.removeListener(this.$items, 'resize');
+
+			// If there's only one column, sneak out early
+			if (this.totalCols == 1)
+			{
+				this.$container.height('auto');
+				this.$items
+					.show()
+					.css({
+						position: 'relative',
+						width: 'auto',
+						top: 0
+					})
+					.css(Craft.left, 0);
+
+				delete this.refreshCols._;
+				return;
+			}
+			else
+			{
+				this.$items.css('position', 'absolute');
+			}
 
 			if (this.settings.mode == 'pct')
 			{
@@ -6692,109 +9161,134 @@ Craft.Grid = Garnish.Base.extend(
 			this.possibleItemPositionsByColspan = [];
 			this.itemHeightsByColspan = [];
 
-			for (var item = 0; item < this.items.length; item++)
+			for (this.refreshCols._.item = 0; this.refreshCols._.item < this.items.length; this.refreshCols._.item++)
 			{
-				this.possibleItemColspans[item] = [];
-				this.possibleItemPositionsByColspan[item] = {};
-				this.itemHeightsByColspan[item] = {};
+				this.possibleItemColspans[this.refreshCols._.item] = [];
+				this.possibleItemPositionsByColspan[this.refreshCols._.item] = {};
+				this.itemHeightsByColspan[this.refreshCols._.item] = {};
 
-				var $item = this.items[item].show(),
-					positionRight = ($item.data('position') == 'right'),
-					positionLeft = ($item.data('position') == 'left'),
-					minColspan = ($item.data('colspan') ? $item.data('colspan') : ($item.data('min-colspan') ? $item.data('min-colspan') : 1)),
-					maxColspan = ($item.data('colspan') ? $item.data('colspan') : ($item.data('max-colspan') ? $item.data('max-colspan') : this.totalCols));
+				this.refreshCols._.$item = this.items[this.refreshCols._.item].show();
+				this.refreshCols._.positionRight = (this.refreshCols._.$item.data('position') == 'right');
+				this.refreshCols._.positionLeft = (this.refreshCols._.$item.data('position') == 'left');
+				this.refreshCols._.minColspan = (this.refreshCols._.$item.data('colspan') ? this.refreshCols._.$item.data('colspan') : (this.refreshCols._.$item.data('min-colspan') ? this.refreshCols._.$item.data('min-colspan') : 1));
+				this.refreshCols._.maxColspan = (this.refreshCols._.$item.data('colspan') ? this.refreshCols._.$item.data('colspan') : (this.refreshCols._.$item.data('max-colspan') ? this.refreshCols._.$item.data('max-colspan') : this.totalCols));
 
-				if (minColspan > this.totalCols) minColspan = this.totalCols;
-				if (maxColspan > this.totalCols) maxColspan = this.totalCols;
+				if (this.refreshCols._.minColspan > this.totalCols) this.refreshCols._.minColspan = this.totalCols;
+				if (this.refreshCols._.maxColspan > this.totalCols) this.refreshCols._.maxColspan = this.totalCols;
 
-				for (var colspan = minColspan; colspan <= maxColspan; colspan++)
+				for (this.refreshCols._.colspan = this.refreshCols._.minColspan; this.refreshCols._.colspan <= this.refreshCols._.maxColspan; this.refreshCols._.colspan++)
 				{
 					// Get the height for this colspan
-					$item.css('width', this.getItemWidth(colspan) + this.sizeUnit);
-					this.itemHeightsByColspan[item][colspan] = $item.outerHeight();
+					this.refreshCols._.$item.css('width', this.getItemWidth(this.refreshCols._.colspan) + this.sizeUnit);
+					this.itemHeightsByColspan[this.refreshCols._.item][this.refreshCols._.colspan] = this.refreshCols._.$item.outerHeight();
 
-					this.possibleItemColspans[item].push(colspan);
-					this.possibleItemPositionsByColspan[item][colspan] = [];
+					this.possibleItemColspans[this.refreshCols._.item].push(this.refreshCols._.colspan);
+					this.possibleItemPositionsByColspan[this.refreshCols._.item][this.refreshCols._.colspan] = [];
 
-					if (positionLeft)
+					if (this.refreshCols._.positionLeft)
 					{
-						var minPosition = 0,
-							maxPosition = 0;
+						this.refreshCols._.minPosition = 0;
+						this.refreshCols._.maxPosition = 0;
 					}
-					else if (positionRight)
+					else if (this.refreshCols._.positionRight)
 					{
-						var minPosition = this.totalCols - colspan,
-							maxPosition = minPosition;
+						this.refreshCols._.minPosition = this.totalCols - this.refreshCols._.colspan;
+						this.refreshCols._.maxPosition = this.refreshCols._.minPosition;
 					}
 					else
 					{
-						var minPosition = 0,
-							maxPosition = this.totalCols - colspan;
+						this.refreshCols._.minPosition = 0;
+						this.refreshCols._.maxPosition = this.totalCols - this.refreshCols._.colspan;
 					}
 
-					for (var position = minPosition; position <= maxPosition; position++)
+					for (this.refreshCols._.position = this.refreshCols._.minPosition; this.refreshCols._.position <= this.refreshCols._.maxPosition; this.refreshCols._.position++)
 					{
-						this.possibleItemPositionsByColspan[item][colspan].push(position);
+						this.possibleItemPositionsByColspan[this.refreshCols._.item][this.refreshCols._.colspan].push(this.refreshCols._.position);
 					}
 				}
 			}
 
 			// Find all the possible layouts
 
-			var colHeights = [];
+			this.refreshCols._.colHeights = [];
 
-			for (var i = 0; i < this.totalCols; i++)
+			for (this.refreshCols._.i = 0; this.refreshCols._.i < this.totalCols; this.refreshCols._.i++)
 			{
-				colHeights.push(0);
+				this.refreshCols._.colHeights.push(0);
 			}
 
-			this.createLayouts(0, [], [], colHeights, 0);
+			this.createLayouts(0, [], [], this.refreshCols._.colHeights, 0);
 
 			// Now find the layout that looks the best.
-			// We'll determine that by first finding all of the layouts that have the lowest overall height,
-			// and of those, find the one with the least empty space
 
-			// Find the layout(s) with the least overall height
-			var layoutHeights = [];
+			// First find the layouts with the highest number of used columns
+			this.refreshCols._.layoutTotalCols = [];
 
-			for (var i = 0; i < this.layouts.length; i++)
+			for (this.refreshCols._.i = 0; this.refreshCols._.i < this.layouts.length; this.refreshCols._.i++)
 			{
-				layoutHeights.push(Math.max.apply(null, this.layouts[i].colHeights));
+				this.refreshCols._.layoutTotalCols[this.refreshCols._.i] = 0;
+
+				for (this.refreshCols._.j = 0; this.refreshCols._.j < this.totalCols; this.refreshCols._.j++)
+				{
+					if (this.layouts[this.refreshCols._.i].colHeights[this.refreshCols._.j])
+					{
+						this.refreshCols._.layoutTotalCols[this.refreshCols._.i]++;
+					}
+				}
 			}
 
-			var shortestHeight = Math.min.apply(null, layoutHeights),
-				shortestLayouts = [],
-				emptySpaces = [];
+			this.refreshCols._.highestTotalCols = Math.max.apply(null, this.refreshCols._.layoutTotalCols);
 
-			for (var i = 0; i < layoutHeights.length; i++)
+			// Filter out the ones that aren't using as many columns as they could be
+			for (this.refreshCols._.i = this.layouts.length - 1; this.refreshCols._.i >= 0; this.refreshCols._.i--)
 			{
-				if (layoutHeights[i] == shortestHeight)
+				if (this.refreshCols._.layoutTotalCols[this.refreshCols._.i] != this.refreshCols._.highestTotalCols)
 				{
-					shortestLayouts.push(this.layouts[i]);
+					this.layouts.splice(this.refreshCols._.i, 1);
+				}
+			}
+
+			// Find the layout(s) with the least overall height
+			this.refreshCols._.layoutHeights = [];
+
+			for (this.refreshCols._.i = 0; this.refreshCols._.i < this.layouts.length; this.refreshCols._.i++)
+			{
+				this.refreshCols._.layoutHeights.push(Math.max.apply(null, this.layouts[this.refreshCols._.i].colHeights));
+			}
+
+			this.refreshCols._.shortestHeight = Math.min.apply(null, this.refreshCols._.layoutHeights);
+			this.refreshCols._.shortestLayouts = [];
+			this.refreshCols._.emptySpaces = [];
+
+			for (this.refreshCols._.i = 0; this.refreshCols._.i < this.refreshCols._.layoutHeights.length; this.refreshCols._.i++)
+			{
+				if (this.refreshCols._.layoutHeights[this.refreshCols._.i] == this.refreshCols._.shortestHeight)
+				{
+					this.refreshCols._.shortestLayouts.push(this.layouts[this.refreshCols._.i]);
 
 					// Now get its total empty space, including any trailing empty space
-					var emptySpace = this.layouts[i].emptySpace;
+					this.refreshCols._.emptySpace = this.layouts[this.refreshCols._.i].emptySpace;
 
-					for (var j = 0; j < this.totalCols; j++)
+					for (this.refreshCols._.j = 0; this.refreshCols._.j < this.totalCols; this.refreshCols._.j++)
 					{
-						emptySpace += (shortestHeight - this.layouts[i].colHeights[j]);
+						this.refreshCols._.emptySpace += (this.refreshCols._.shortestHeight - this.layouts[this.refreshCols._.i].colHeights[this.refreshCols._.j]);
 					}
 
-					emptySpaces.push(emptySpace);
+					this.refreshCols._.emptySpaces.push(this.refreshCols._.emptySpace);
 				}
 			}
 
 			// And the layout with the least empty space is...
-			this.layout = shortestLayouts[$.inArray(Math.min.apply(null, emptySpaces), emptySpaces)];
+			this.layout = this.refreshCols._.shortestLayouts[$.inArray(Math.min.apply(null, this.refreshCols._.emptySpaces), this.refreshCols._.emptySpaces)];
 
 			// Figure out the left padding based on the number of empty columns
-			var totalEmptyCols = 0;
+			this.refreshCols._.totalEmptyCols = 0;
 
-			for (var i = this.layout.colHeights.length-1; i >= 0; i--)
+			for (this.refreshCols._.i = this.layout.colHeights.length-1; this.refreshCols._.i >= 0; this.refreshCols._.i--)
 			{
-				if (this.layout.colHeights[i] == 0)
+				if (this.layout.colHeights[this.refreshCols._.i] == 0)
 				{
-					totalEmptyCols++;
+					this.refreshCols._.totalEmptyCols++;
 				}
 				else
 				{
@@ -6802,19 +9296,41 @@ Craft.Grid = Garnish.Base.extend(
 				}
 			}
 
-			this.leftPadding = this.getItemWidth(totalEmptyCols) / 2;
+			this.leftPadding = this.getItemWidth(this.refreshCols._.totalEmptyCols) / 2;
 
 			if (this.settings.mode == 'fixed')
 			{
 				this.leftPadding += (this.$container.width() - (this.settings.minColWidth * this.totalCols)) / 2;
 			}
 
-			// Now position the items
-			this.positionItems();
+			// Set the item widths and left positions
+			for (this.refreshCols._.i = 0; this.refreshCols._.i < this.items.length; this.refreshCols._.i++)
+			{
+				this.items[this.refreshCols._.i]
+					.css('width', this.getItemWidth(this.layout.colspans[this.refreshCols._.i]) + this.sizeUnit)
+					.css(Craft.left, this.leftPadding + this.getItemWidth(this.layout.positions[this.refreshCols._.i]) + this.sizeUnit);
+			}
 
-			// Update the positions as the items' heigthts change
-			this.addListener(this.$items, 'resize', 'onItemResize');
+			// If every item is at position 0, then let them lay out au naturel
+			if (this.isSimpleLayout())
+			{
+
+				this.$container.height('auto');
+				this.$items.css('position', 'relative');
+			}
+			else
+			{
+				this.$items.css('position', 'absolute');
+
+				// Now position the items
+				this.positionItems();
+
+				// Update the positions as the items' heigthts change
+				this.addListener(this.$items, 'resize', 'onItemResize');
+			}
 		}
+
+		delete this.refreshCols._;
 	},
 
 	getItemWidth: function(colspan)
@@ -6831,132 +9347,87 @@ Craft.Grid = Garnish.Base.extend(
 
 	createLayouts: function(item, prevPositions, prevColspans, prevColHeights, prevEmptySpace)
 	{
-		// Loop through all possible colspans
-		for (var c = 0; c < this.possibleItemColspans[item].length; c++)
+		(new Craft.Grid.LayoutGenerator(this)).createLayouts(item, prevPositions, prevColspans, prevColHeights, prevEmptySpace);
+	},
+
+	isSimpleLayout: function()
+	{
+		this.isSimpleLayout._ = {};
+
+		for (this.isSimpleLayout._.i = 0; this.isSimpleLayout._.i < this.layout.positions.length; this.isSimpleLayout._.i++)
 		{
-			var colspan = this.possibleItemColspans[item][c];
-
-			// Loop through all the possible positions for this colspan,
-			// and find the one that is closest to the top
-
-			var tallestColHeightsByPosition = [];
-
-			for (var p = 0; p < this.possibleItemPositionsByColspan[item][colspan].length; p++)
+			if (this.layout.positions[this.isSimpleLayout._.i] != 0)
 			{
-				var position = this.possibleItemPositionsByColspan[item][colspan][p];
-
-				var colHeightsForPosition = [],
-					endingCol = position + colspan - 1;
-
-				for (var col = position; col <= endingCol; col++)
-				{
-					colHeightsForPosition.push(prevColHeights[col]);
-				}
-
-				tallestColHeightsByPosition[p] = Math.max.apply(null, colHeightsForPosition);
-			}
-
-			// And the shortest position for this colspan is...
-			var p = $.inArray(Math.min.apply(null, tallestColHeightsByPosition), tallestColHeightsByPosition),
-				position = this.possibleItemPositionsByColspan[item][colspan][p];
-
-			// Now log the colspan/position placement
-			var positions = prevPositions.slice(0),
-				colspans = prevColspans.slice(0),
-				colHeights = prevColHeights.slice(0),
-				emptySpace = prevEmptySpace;
-
-			positions.push(position);
-			colspans.push(colspan);
-
-			// Add the new heights to those columns
-			var tallestColHeight = tallestColHeightsByPosition[p],
-				endingCol = position + colspan - 1;
-
-			for (var col = position; col <= endingCol; col++)
-			{
-				emptySpace += tallestColHeight - colHeights[col];
-				colHeights[col] = tallestColHeight + this.itemHeightsByColspan[item][colspan];
-			}
-
-			// If this is the last item, create the layout
-			if (item == this.items.length-1)
-			{
-				this.layouts.push({
-					positions: positions,
-					colspans: colspans,
-					colHeights: colHeights,
-					emptySpace: emptySpace
-				});
-			}
-			else
-			{
-				// Dive deeper
-				this.createLayouts(item+1, positions, colspans, colHeights, emptySpace);
+				delete this.isSimpleLayout._;
+				return false;
 			}
 		}
+
+		delete this.isSimpleLayout._;
+		return true;
 	},
 
 	positionItems: function()
 	{
-		var colHeights = [];
+		this.positionItems._ = {};
 
-		for (var i = 0; i < this.totalCols; i++)
+		this.positionItems._.colHeights = [];
+
+		for (this.positionItems._.i = 0; this.positionItems._.i < this.totalCols; this.positionItems._.i++)
 		{
-			colHeights.push(0);
+			this.positionItems._.colHeights.push(0);
 		}
 
-		for (var i = 0; i < this.items.length; i++)
+		for (this.positionItems._.i = 0; this.positionItems._.i < this.items.length; this.positionItems._.i++)
 		{
-			var endingCol = this.layout.positions[i] + this.layout.colspans[i] - 1,
-				affectedColHeights = [];
+			this.positionItems._.endingCol = this.layout.positions[this.positionItems._.i] + this.layout.colspans[this.positionItems._.i] - 1;
+			this.positionItems._.affectedColHeights = [];
 
-			for (var col = this.layout.positions[i]; col <= endingCol; col++)
+			for (this.positionItems._.col = this.layout.positions[this.positionItems._.i]; this.positionItems._.col <= this.positionItems._.endingCol; this.positionItems._.col++)
 			{
-				affectedColHeights.push(colHeights[col]);
+				this.positionItems._.affectedColHeights.push(this.positionItems._.colHeights[this.positionItems._.col]);
 			}
 
-			var top = Math.max.apply(null, affectedColHeights);
-
-			var css = {
-				top: top,
-				width: this.getItemWidth(this.layout.colspans[i]) + this.sizeUnit
-			};
-			css[Craft.left] = this.leftPadding + this.getItemWidth(this.layout.positions[i]) + this.sizeUnit;
-
-			this.items[i].css(css);
+			this.positionItems._.top = Math.max.apply(null, this.positionItems._.affectedColHeights);
+			this.items[this.positionItems._.i].css('top', this.positionItems._.top);
 
 			// Now add the new heights to those columns
-			for (var col = this.layout.positions[i]; col <= endingCol; col++)
+			for (this.positionItems._.col = this.layout.positions[this.positionItems._.i]; this.positionItems._.col <= this.positionItems._.endingCol; this.positionItems._.col++)
 			{
-				colHeights[col] = top + this.itemHeightsByColspan[i][this.layout.colspans[i]];
+				this.positionItems._.colHeights[this.positionItems._.col] = this.positionItems._.top + this.itemHeightsByColspan[this.positionItems._.i][this.layout.colspans[this.positionItems._.i]];
 			}
 		}
 
 		// Set the container height
-		this.$container.css({
-			height: Math.max.apply(null, colHeights)
-		});
+		this.removeListener(this.$container, 'height');
+		this.$container.height(Math.max.apply(null, this.positionItems._.colHeights));
+		this.addListener(this.$container, 'height', 'refreshCols');
+
+		delete this.positionItems._;
 	},
 
 	onItemResize: function(ev)
 	{
+		this.onItemResize._ = {};
+
 		// Prevent this from bubbling up to the container, which has its own resize listener
 		ev.stopPropagation();
 
-		var item = $.inArray(ev.currentTarget, this.$items);
+		this.onItemResize._.item = $.inArray(ev.currentTarget, this.$items);
 
-		if (item != -1)
+		if (this.onItemResize._.item != -1)
 		{
 			// Update the height and reposition the items
-			var newHeight = this.items[item].outerHeight();
+			this.onItemResize._.newHeight = this.items[this.onItemResize._.item].outerHeight();
 
-			if (newHeight != this.itemHeightsByColspan[item][this.layout.colspans[item]])
+			if (this.onItemResize._.newHeight != this.itemHeightsByColspan[this.onItemResize._.item][this.layout.colspans[this.onItemResize._.item]])
 			{
-				this.itemHeightsByColspan[item][this.layout.colspans[item]] = newHeight;
+				this.itemHeightsByColspan[this.onItemResize._.item][this.layout.colspans[this.onItemResize._.item]] = this.onItemResize._.newHeight;
 				this.positionItems();
 			}
 		}
+
+		delete this.onItemResize._;
 	}
 },
 {
@@ -6971,6 +9442,90 @@ Craft.Grid = Garnish.Base.extend(
 	}
 });
 
+
+Craft.Grid.LayoutGenerator = Garnish.Base.extend(
+{
+	grid: null,
+	_: null,
+
+	init: function(grid)
+	{
+		this.grid = grid;
+	},
+
+	createLayouts: function(item, prevPositions, prevColspans, prevColHeights, prevEmptySpace)
+	{
+		this._ = {};
+
+		// Loop through all possible colspans
+		for (this._.c = 0; this._.c < this.grid.possibleItemColspans[item].length; this._.c++)
+		{
+			this._.colspan = this.grid.possibleItemColspans[item][this._.c];
+
+			// Loop through all the possible positions for this colspan,
+			// and find the one that is closest to the top
+
+			this._.tallestColHeightsByPosition = [];
+
+			for (this._.p = 0; this._.p < this.grid.possibleItemPositionsByColspan[item][this._.colspan].length; this._.p++)
+			{
+				this._.position = this.grid.possibleItemPositionsByColspan[item][this._.colspan][this._.p];
+
+				this._.colHeightsForPosition = [];
+				this._.endingCol = this._.position + this._.colspan - 1;
+
+				for (this._.col = this._.position; this._.col <= this._.endingCol; this._.col++)
+				{
+					this._.colHeightsForPosition.push(prevColHeights[this._.col]);
+				}
+
+				this._.tallestColHeightsByPosition[this._.p] = Math.max.apply(null, this._.colHeightsForPosition);
+			}
+
+			// And the shortest position for this colspan is...
+			this._.p = $.inArray(Math.min.apply(null, this._.tallestColHeightsByPosition), this._.tallestColHeightsByPosition);
+			this._.position = this.grid.possibleItemPositionsByColspan[item][this._.colspan][this._.p];
+
+			// Now log the colspan/position placement
+			this._.positions = prevPositions.slice(0);
+			this._.colspans = prevColspans.slice(0);
+			this._.colHeights = prevColHeights.slice(0);
+			this._.emptySpace = prevEmptySpace;
+
+			this._.positions.push(this._.position);
+			this._.colspans.push(this._.colspan);
+
+			// Add the new heights to those columns
+			this._.tallestColHeight = this._.tallestColHeightsByPosition[this._.p];
+			this._.endingCol = this._.position + this._.colspan - 1;
+
+			for (this._.col = this._.position; this._.col <= this._.endingCol; this._.col++)
+			{
+				this._.emptySpace += this._.tallestColHeight - this._.colHeights[this._.col];
+				this._.colHeights[this._.col] = this._.tallestColHeight + this.grid.itemHeightsByColspan[item][this._.colspan];
+			}
+
+			// If this is the last item, create the layout
+			if (item == this.grid.items.length-1)
+			{
+				this.grid.layouts.push({
+					positions:  this._.positions,
+					colspans:   this._.colspans,
+					colHeights: this._.colHeights,
+					emptySpace: this._.emptySpace
+				});
+			}
+			else
+			{
+				// Dive deeper
+				this.grid.createLayouts(item+1, this._.positions, this._.colspans, this._.colHeights, this._.emptySpace);
+			}
+		}
+
+		delete this._;
+	}
+
+});
 
 /**
  * Handle Generator
@@ -7017,24 +9572,24 @@ Craft.HandleGenerator = Craft.BaseInputGenerator.extend(
 
 
 /**
- * postParameters    - an object of POST data to pass along with each Ajax request
- * modalClass        - class to add to the modal window to allow customization
- * uploadButton      - jQuery object of the element that should open the file chooser
- * uploadAction      - upload to this location (in form of "controller/action")
- * deleteButton      - jQuery object of the element that starts the image deletion process
- * deleteMessage     - confirmation message presented to the user for image deletion
- * deleteAction      - delete image at this location (in form of "controller/action")
- * cropAction        - crop image at this (in form of "controller/action")
- * areaToolOptions   - object with some options for the area tool selector
- *   aspectRatio     - aspect ration to enforce in form of "width:height". If empty, then select area is freeform
- *   intialRectangle - object with options for the initial rectangle
- *     mode          - if set to auto, then the part selected will be the maximum size in the middle of image
- *     x1            - top left x coordinate of th rectangle, if the mode is not set to auto
- *     x2            - bottom right x coordinate of th rectangle, if the mode is not set to auto
- *     y1            - top left y coordinate of th rectangle, if the mode is not set to auto
- *     y2            - bottom right y coordinate of th rectangle, if the mode is not set to auto
+ * postParameters     - an object of POST data to pass along with each Ajax request
+ * modalClass         - class to add to the modal window to allow customization
+ * uploadButton       - jQuery object of the element that should open the file chooser
+ * uploadAction       - upload to this location (in form of "controller/action")
+ * deleteButton       - jQuery object of the element that starts the image deletion process
+ * deleteMessage      - confirmation message presented to the user for image deletion
+ * deleteAction       - delete image at this location (in form of "controller/action")
+ * cropAction         - crop image at this (in form of "controller/action")
+ * areaToolOptions    - object with some options for the area tool selector
+ *   aspectRatio      - aspect ration to enforce in form of "width:height". If empty, then select area is freeform
+ *   initialRectangle - object with options for the initial rectangle
+ *     mode           - if set to auto, then the part selected will be the maximum size in the middle of image
+ *     x1             - top left x coordinate of th rectangle, if the mode is not set to auto
+ *     x2             - bottom right x coordinate of th rectangle, if the mode is not set to auto
+ *     y1             - top left y coordinate of th rectangle, if the mode is not set to auto
+ *     y2             - bottom right y coordinate of th rectangle, if the mode is not set to auto
  *
- * onImageDelete     - callback to call when image is deleted. First parameter will containt respone data.
+ * onImageDelete     - callback to call when image is deleted. First parameter will contain response data.
  * onImageSave       - callback to call when an cropped image is saved. First parameter will contain response data.
  */
 
@@ -7120,7 +9675,7 @@ Craft.ImageHandler = Garnish.Base.extend(
 
 			element:    this.settings.uploadButton[0],
 			action:     Craft.actionUrl + '/' + this.settings.uploadAction,
-			formData:   this.settings.postParameters,
+			formData:   typeof this.settings.postParameters === 'object' ? this.settings.postParameters : {},
 			events:     {
 				fileuploadstart: $.proxy(function()
 				{
@@ -7175,6 +9730,7 @@ Craft.ImageHandler = Garnish.Base.extend(
 							{
 								var profileTool = new Craft.ImageAreaTool(settings.areaToolOptions);
 								profileTool.showArea(this.modal);
+								this.modal.cropAreaTool = profileTool;
 							}, this));
 						}, this), 1);
 					}
@@ -7182,6 +9738,13 @@ Craft.ImageHandler = Garnish.Base.extend(
 			},
 			acceptFileTypes: /(jpg|jpeg|gif|png)/
 		};
+
+		// If CSRF protection isn't enabled, these won't be defined.
+		if (typeof Craft.csrfTokenName !== 'undefined' && typeof Craft.csrfTokenValue !== 'undefined')
+		{
+			// Add the CSRF token
+			options.formData[Craft.csrfTokenName] = Craft.csrfTokenValue;
+		}
 
 		this.uploader = new Craft.Uploader(element, options);
 
@@ -7236,10 +9799,12 @@ Craft.ImageModal = Garnish.Modal.extend(
 	originalWidth: 0,
 	originalHeight: 0,
 	constraint: 0,
+	cropAreaTool: null,
 
 
 	init: function($container, settings)
 	{
+		this.cropAreaTool = null;
 		this.base($container, settings);
 		this._postParameters = settings.postParameters;
 		this._cropAction = settings.cropAction;
@@ -7265,20 +9830,19 @@ Craft.ImageModal = Garnish.Modal.extend(
 		{
 			newWidth = this.$container.width() + leftAvailable;
 		}
+
 		// Set the size so that the image always fits into a constraint x constraint box
 		newWidth = Math.min(newWidth, this.constraint, this.constraint * quotient, this.originalWidth);
 		this.$container.width(newWidth);
 
-		var newWidth = this.$container.width(),
-			factor = newWidth / this.originalWidth,
+		var factor = newWidth / this.originalWidth,
 			newHeight = this.originalHeight * factor;
 
 		$img.height(newHeight).width(newWidth);
 		this.factor = factor;
-		var instance = $img.imgAreaSelect({instance: true});
-		if (instance)
+		if (this.cropAreaTool)
 		{
-			instance.update();
+			$img.imgAreaSelect({instance: true}).update();
 		}
 	},
 
@@ -7363,7 +9927,8 @@ Craft.ImageAreaTool = Garnish.Base.extend(
 			show: true,
 			persistent: true,
 			handles: true,
-			parent: $target.parent()
+			parent: $target.parent(),
+			classPrefix: 'imgareaselect'
 		};
 
 		var areaSelect = $target.imgAreaSelect(areaOptions);
@@ -7452,7 +10017,7 @@ Craft.LightSwitch = Garnish.Base.extend(
 	$outerContainer: null,
 	$innerContainer: null,
 	$input: null,
-	$toggleTarget: null,
+	small: false,
 	on: null,
 	dragger: null,
 
@@ -7471,11 +10036,18 @@ Craft.LightSwitch = Garnish.Base.extend(
 
 		this.$outerContainer.data('lightswitch', this);
 
+		this.small = this.$outerContainer.hasClass('small');
+
 		this.setSettings(settings, Craft.LightSwitch.defaults);
 
 		this.$innerContainer = this.$outerContainer.find('.lightswitch-container:first');
 		this.$input = this.$outerContainer.find('input:first');
-		this.$toggleTarget = $(this.$outerContainer.attr('data-toggle'));
+
+		// If the input is disabled, go no further
+		if (this.$input.prop('disabled'))
+		{
+			return;
+		}
 
 		this.on = this.$outerContainer.hasClass('on');
 
@@ -7497,20 +10069,12 @@ Craft.LightSwitch = Garnish.Base.extend(
 
 		var animateCss = {};
 		animateCss['margin-'+Craft.left] = 0;
-		this.$innerContainer.stop().animate(animateCss, Craft.LightSwitch.animationDuration, $.proxy(this, '_onSettle'));
+		this.$innerContainer.velocity('stop').velocity(animateCss, Craft.LightSwitch.animationDuration, $.proxy(this, '_onSettle'));
 
 		this.$input.val('1');
 		this.$outerContainer.addClass('on');
 		this.on = true;
-		this.settings.onChange();
-
-		this.$toggleTarget.show();
-		this.$toggleTarget.height('auto');
-		var height = this.$toggleTarget.height();
-		this.$toggleTarget.height(0);
-		this.$toggleTarget.stop().animate({height: height}, Craft.LightSwitch.animationDuration, $.proxy(function() {
-			this.$toggleTarget.height('auto');
-		}, this));
+		this.onChange();
 	},
 
 	turnOff: function()
@@ -7518,15 +10082,13 @@ Craft.LightSwitch = Garnish.Base.extend(
 		this.$outerContainer.addClass('dragging');
 
 		var animateCss = {};
-		animateCss['margin-'+Craft.left] = Craft.LightSwitch.offMargin;
-		this.$innerContainer.stop().animate(animateCss, Craft.LightSwitch.animationDuration, $.proxy(this, '_onSettle'));
+		animateCss['margin-'+Craft.left] = this._getOffMargin();
+		this.$innerContainer.velocity('stop').velocity(animateCss, Craft.LightSwitch.animationDuration, $.proxy(this, '_onSettle'));
 
 		this.$input.val('');
 		this.$outerContainer.removeClass('on');
 		this.on = false;
-		this.settings.onChange();
-
-		this.$toggleTarget.stop().animate({height: 0}, Craft.LightSwitch.animationDuration);
+		this.onChange();
 	},
 
 	toggle: function(event)
@@ -7541,6 +10103,13 @@ Craft.LightSwitch = Garnish.Base.extend(
 		}
 	},
 
+	onChange: function()
+	{
+		this.trigger('change');
+		this.settings.onChange();
+		this.$outerContainer.trigger('change');
+	},
+
 	_onMouseDown: function()
 	{
 		this.addListener(Garnish.$doc, 'mouseup', '_onMouseUp')
@@ -7552,7 +10121,9 @@ Craft.LightSwitch = Garnish.Base.extend(
 
 		// Was this a click?
 		if (!this.dragger.dragging)
+		{
 			this.toggle();
+		}
 	},
 
 	_onKeyDown: function(event)
@@ -7618,9 +10189,9 @@ Craft.LightSwitch = Garnish.Base.extend(
 			var margin = this.dragStartMargin - this.dragger.mouseDistX;
 		}
 
-		if (margin < Craft.LightSwitch.offMargin)
+		if (margin < this._getOffMargin())
 		{
-			margin = Craft.LightSwitch.offMargin;
+			margin = this._getOffMargin();
 		}
 		else if (margin > 0)
 		{
@@ -7634,7 +10205,7 @@ Craft.LightSwitch = Garnish.Base.extend(
 	{
 		var margin = this._getMargin();
 
-		if (margin > (Craft.LightSwitch.offMargin / 2))
+		if (margin > (this._getOffMargin() / 2))
 		{
 			this.turnOn();
 		}
@@ -7653,15 +10224,494 @@ Craft.LightSwitch = Garnish.Base.extend(
 	{
 		this.base();
 		this.dragger.destroy();
+	},
+
+	_getOffMargin: function()
+	{
+		return (this.small ? -9 : -11);
 	}
 
 }, {
-	offMargin: -9,
 	animationDuration: 100,
 	defaults: {
 		onChange: $.noop
 	}
 });
+
+
+(function($) {
+
+
+Craft.LivePreview = Garnish.Base.extend(
+{
+	$extraFields: null,
+	$trigger: null,
+	$spinner: null,
+	$shade: null,
+	$editor: null,
+	$dragHandle: null,
+	$iframeContainer: null,
+	$iframe: null,
+	$fieldPlaceholder: null,
+
+	previewUrl: null,
+	basePostData: null,
+	inPreviewMode: false,
+	fields: null,
+	lastPostData: null,
+	updateIframeInterval: null,
+	loading: false,
+	checkAgain: false,
+
+	dragger: null,
+	dragStartEditorWidth: null,
+
+	_handleSuccessProxy: null,
+	_handleErrorProxy: null,
+
+	_scrollX: null,
+	_scrollY: null,
+
+	_editorWidth: null,
+	_editorWidthInPx: null,
+
+	init: function(settings)
+	{
+		this.setSettings(settings, Craft.LivePreview.defaults);
+
+		// Should preview requests use a specific URL?
+		// This won't affect how the request gets routed (the action param will override it),
+		// but it will allow the templates to change behavior based on the request URI.
+		if (this.settings.previewUrl)
+		{
+			this.previewUrl = this.settings.previewUrl;
+		}
+		else
+		{
+			this.previewUrl = Craft.baseSiteUrl.replace(/\/+$/, '') + '/';
+		}
+
+		// Load the preview over SSL if the current request is
+		if (document.location.protocol == 'https:')
+		{
+			this.previewUrl = this.previewUrl.replace(/^http:/, 'https:');
+		}
+
+		// Set the base post data
+		this.basePostData = $.extend({
+			action: this.settings.previewAction,
+			livePreview: true
+		}, this.settings.previewParams);
+
+		if (Craft.csrfTokenName)
+		{
+			this.basePostData[Craft.csrfTokenName] = Craft.csrfTokenValue;
+		}
+
+		this._handleSuccessProxy = $.proxy(this, 'handleSuccess');
+		this._handleErrorProxy = $.proxy(this, 'handleError');
+
+		// Find the DOM elements
+		this.$extraFields = $(this.settings.extraFields);
+		this.$trigger = $(this.settings.trigger);
+		this.$spinner = this.settings.spinner ? $(this.settings.spinner) : this.$trigger.find('.spinner');
+		this.$fieldPlaceholder = $('<div/>');
+
+		// Set the initial editor width
+		this.editorWidth = Craft.getLocalStorage('LivePreview.editorWidth', Craft.LivePreview.defaultEditorWidth);
+
+		// Event Listeners
+		this.addListener(this.$trigger, 'activate', 'toggle');
+
+		Craft.cp.on('beforeSaveShortcut', $.proxy(function()
+		{
+			if (this.inPreviewMode)
+			{
+				this.moveFieldsBack();
+			}
+		}, this));
+	},
+
+	get editorWidth()
+	{
+		return this._editorWidth;
+	},
+
+	get editorWidthInPx()
+	{
+		return this._editorWidthInPx;
+	},
+
+	set editorWidth(width)
+	{
+		// Is this getting set in pixels?
+		if (width >= 1)
+		{
+			var inPx = width;
+			width /= Garnish.$win.width();
+		}
+		else
+		{
+			var inPx = Math.round(width * Garnish.$win.width());
+		}
+
+		// Make sure it's no less than the minimum
+		if (inPx < Craft.LivePreview.minEditorWidthInPx)
+		{
+			inPx = Craft.LivePreview.minEditorWidthInPx;
+			width = inPx / Garnish.$win.width();
+		}
+
+		this._editorWidth = width;
+		this._editorWidthInPx = inPx;
+	},
+
+	toggle: function()
+	{
+		if (this.inPreviewMode)
+		{
+			this.exit();
+		}
+		else
+		{
+			this.enter();
+		}
+	},
+
+	enter: function()
+	{
+		if (this.inPreviewMode)
+		{
+			return;
+		}
+
+		this.trigger('beforeEnter');
+
+		$(document.activeElement).blur();
+
+		if (!this.$editor)
+		{
+			this.$shade = $('<div class="modal-shade dark"></div>').appendTo(Garnish.$bod).css('z-index', 2);
+			this.$editor = $('<div class="lp-editor"></div>').appendTo(Garnish.$bod)
+			this.$iframeContainer = $('<div class="lp-iframe-container" />').appendTo(Garnish.$bod);
+			this.$iframe = $('<iframe class="lp-iframe" frameborder="0" />').appendTo(this.$iframeContainer);
+			this.$dragHandle = $('<div class="lp-draghandle"></div>').appendTo(Garnish.$bod);
+
+			var $header = $('<header class="header"></header>').appendTo(this.$editor),
+				$closeBtn = $('<div class="btn">'+Craft.t('Done')+'</div>').appendTo($header),
+				$heading = $('<h1>'+Craft.t('Live Preview')+'</h1>').appendTo($header);
+
+			this.dragger = new Garnish.BaseDrag(this.$dragHandle, {
+				axis:          Garnish.X_AXIS,
+				onDragStart:   $.proxy(this, '_onDragStart'),
+				onDrag:        $.proxy(this, '_onDrag'),
+				onDragStop:    $.proxy(this, '_onDragStop')
+			});
+
+			this.addListener($closeBtn, 'click', 'exit');
+		}
+
+		// Set the sizes
+		this.handleWindowResize();
+		this.addListener(Garnish.$win, 'resize', 'handleWindowResize');
+
+		this.$editor.css(Craft.left, -this.editorWidthInPx+'px');
+		this.$editor.css('width', this.editorWidthInPx+'px');
+
+		this.$iframeContainer.css(Craft.right, -this.getIframeWidth());
+
+		// Move all the fields into the editor rather than copying them
+		// so any JS that's referencing the elements won't break.
+		this.fields = [];
+		var $fields = $(this.settings.fields);
+
+		for (var i= 0; i < $fields.length; i++)
+		{
+			var $field = $($fields[i]),
+				$clone = this._getClone($field);
+
+			// It's important that the actual field is added to the DOM *after* the clone,
+			// so any radio buttons in the field get deselected from the clone rather than the actual field.
+			this.$fieldPlaceholder.insertAfter($field);
+			$field.detach();
+			this.$fieldPlaceholder.replaceWith($clone);
+			$field.appendTo(this.$editor);
+
+			this.fields.push({
+				$field: $field,
+				$clone: $clone
+			});
+		}
+
+		if (this.updateIframe())
+		{
+			this.$spinner.removeClass('hidden');
+			this.addListener(this.$iframe, 'load', function()
+			{
+				this.slideIn();
+				this.removeListener(this.$iframe, 'load');
+			});
+		}
+		else
+		{
+			this.slideIn();
+		}
+
+		this.inPreviewMode = true;
+		this.trigger('enter');
+	},
+
+	handleWindowResize: function()
+	{
+		// Reset the width so the min width is enforced
+		this.editorWidth = this.editorWidth;
+
+		// Update the editor/iframe sizes
+		this.updateWidths();
+	},
+
+	slideIn: function()
+	{
+		$('html').addClass('noscroll');
+		this.$spinner.addClass('hidden');
+
+		this.$shade.velocity('fadeIn');
+
+		this.$editor.show().velocity('stop').animateLeft(0, 'slow', $.proxy(function()
+		{
+			this.trigger('slideIn');
+			Garnish.$win.trigger('resize');
+		}, this));
+		this.$iframeContainer.show().velocity('stop').animateRight(0, 'slow', $.proxy(function()
+		{
+			this.updateIframeInterval = setInterval($.proxy(this, 'updateIframe'), 1000);
+
+			this.addListener(Garnish.$bod, 'keyup', function(ev)
+			{
+				if (ev.keyCode == Garnish.ESC_KEY)
+				{
+					this.exit();
+				}
+			});
+		}, this));
+	},
+
+	exit: function()
+	{
+		if (!this.inPreviewMode)
+		{
+			return;
+		}
+
+		this.trigger('beforeExit');
+
+		$('html').removeClass('noscroll');
+
+		this.removeListener(Garnish.$win, 'resize');
+		this.removeListener(Garnish.$bod, 'keyup');
+
+		if (this.updateIframeInterval)
+		{
+			clearInterval(this.updateIframeInterval);
+		}
+
+		this.moveFieldsBack();
+
+		var windowWidth = Garnish.$win.width();
+
+		this.$shade.delay(200).velocity('fadeOut');
+
+		this.$editor.velocity('stop').animateLeft(-this.editorWidthInPx, 'slow', $.proxy(function()
+		{
+			for (var i = 0; i < this.fields.length; i++)
+			{
+				this.fields[i].$newClone.remove();
+			}
+			this.$editor.hide();
+			this.trigger('slideOut');
+		}, this));
+
+		this.$iframeContainer.velocity('stop').animateRight(-this.getIframeWidth(), 'slow', $.proxy(function()
+		{
+			this.$iframeContainer.hide();
+		}, this));
+
+		this.inPreviewMode = false;
+		this.trigger('exit');
+	},
+
+	moveFieldsBack: function()
+	{
+		for (var i = 0; i < this.fields.length; i++)
+		{
+			var field = this.fields[i];
+			field.$newClone = this._getClone(field.$field);
+
+			// It's important that the actual field is added to the DOM *after* the clone,
+			// so any radio buttons in the field get deselected from the clone rather than the actual field.
+			this.$fieldPlaceholder.insertAfter(field.$field);
+			field.$field.detach();
+			this.$fieldPlaceholder.replaceWith(field.$newClone);
+			field.$clone.replaceWith(field.$field);
+		}
+
+		Garnish.$win.trigger('resize');
+	},
+
+	getIframeWidth: function()
+	{
+		return Garnish.$win.width()-this.editorWidthInPx;
+	},
+
+	updateWidths: function()
+	{
+		this.$editor.css('width', this.editorWidthInPx+'px');
+		this.$dragHandle.css(Craft.left, this.editorWidthInPx+'px');
+		this.$iframeContainer.width(this.getIframeWidth());
+	},
+
+	updateIframe: function(force)
+	{
+		if (force)
+		{
+			this.lastPostData = null;
+		}
+
+		if (!this.inPreviewMode)
+		{
+			return false;
+		}
+
+		if (this.loading)
+		{
+			this.checkAgain = true;
+			return false;
+		}
+
+		// Has the post data changed?
+		var postData = $.extend(Garnish.getPostData(this.$editor), Garnish.getPostData(this.$extraFields));
+
+		if (!this.lastPostData || !Craft.compare(postData, this.lastPostData))
+		{
+			this.lastPostData = postData;
+			this.loading = true;
+
+			var data = $.extend({}, postData, this.basePostData),
+				$doc = $(this.$iframe[0].contentWindow.document);
+
+			this._scrollX = $doc.scrollLeft();
+			this._scrollY = $doc.scrollTop();
+
+			$.ajax({
+				url: this.previewUrl,
+				method: 'POST',
+				data: $.extend({}, postData, this.basePostData),
+				success: this._handleSuccessProxy,
+				error: this._handleErrorProxy
+			});
+
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	},
+
+	handleSuccess: function(data, textStatus, jqXHR)
+	{
+		var html = data +
+			'<script type="text/javascript">window.scrollTo('+this._scrollX+', '+this._scrollY+');</script>';
+
+		// Set the iframe to use the same bg as the iframe body,
+		// to reduce the blink when reloading the DOM
+		this.$iframe.css('background', $(this.$iframe[0].contentWindow.document.body).css('background'));
+
+		this.$iframe[0].contentWindow.document.open();
+		this.$iframe[0].contentWindow.document.write(html);
+		this.$iframe[0].contentWindow.document.close();
+
+		this.onResponse();
+	},
+
+	handleError: function(jqXHR, textStatus, errorThrown)
+	{
+		this.onResponse();
+	},
+
+	onResponse: function()
+	{
+		this.loading = false;
+
+		if (this.checkAgain)
+		{
+			this.checkAgain = false;
+			this.updateIframe();
+		}
+	},
+
+	_getClone: function($field)
+	{
+		var $clone = $field.clone();
+
+		// clone() won't account for input values that have changed since the original HTML set them
+		Garnish.copyInputValues($field, $clone);
+
+		// Remove any id= attributes
+		$clone.attr('id', '');
+		$clone.find('[id]').attr('id', '');
+
+		return $clone;
+	},
+
+	_onDragStart: function()
+	{
+		this.dragStartEditorWidth = this.editorWidthInPx;
+		this.$iframeContainer.addClass('dragging');
+	},
+
+	_onDrag: function()
+	{
+		if (Craft.orientation == 'ltr')
+		{
+			this.editorWidth = this.dragStartEditorWidth + this.dragger.mouseDistX;
+		}
+		else
+		{
+			this.editorWidth = this.dragStartEditorWidth - this.dragger.mouseDistX;
+		}
+
+		this.updateWidths();
+	},
+
+	_onDragStop: function()
+	{
+		this.$iframeContainer.removeClass('dragging');
+		Craft.setLocalStorage('LivePreview.editorWidth', this.editorWidth);
+	}
+},
+{
+	defaultEditorWidth: .33,
+	minEditorWidthInPx: 200,
+
+	defaults: {
+		trigger: '.livepreviewbtn',
+		spinner: null,
+		fields: null,
+		extraFields: null,
+		previewUrl: null,
+		previewAction: null,
+		previewParams: {}
+	}
+});
+
+Craft.LivePreview.init = function(settings)
+{
+	Craft.livePreview = new Craft.LivePreview(settings);
+};
+
+
+})(jQuery);
 
 
 /**
@@ -7919,23 +10969,20 @@ Craft.Pane = Garnish.Base.extend(
 			if (this.updateSidebarStyles._scrollTop > this.updateSidebarStyles._contentOffset - 24)
 			{
 				// Set the top position to the difference
-				this.updateSidebarStyles._styles.top = this.updateSidebarStyles._scrollTop - this.updateSidebarStyles._contentOffset;
+				this.updateSidebarStyles._styles.position = 'fixed';
+				this.updateSidebarStyles._styles.top = '24px';
 			}
 			else
 			{
-				this.updateSidebarStyles._styles.top = -24;
+				this.updateSidebarStyles._styles.position = 'absolute';
+				this.updateSidebarStyles._styles.top = 'auto';
 			}
 
 			// Now figure out how tall the sidebar can be
-			this.updateSidebarStyles._styles.maxHeight = Math.min(this.updateSidebarStyles._contentHeight - this.updateSidebarStyles._styles.top, this.updateSidebarStyles._windowHeight - 48);
-
-			// The sidebar should be at least 100px tall if possible
-			if (this.updateSidebarStyles._styles.top != 0 && this.updateSidebarStyles._styles.maxHeight < 100)
-			{
-				this.updateSidebarStyles.newTop = Math.max(-24, this.updateSidebarStyles._styles.top - (100 - this.updateSidebarStyles._styles.maxHeight));
-				this.updateSidebarStyles._styles.maxHeight += this.updateSidebarStyles._styles.top - this.updateSidebarStyles.newTop;
-				this.updateSidebarStyles._styles.top = this.updateSidebarStyles.newTop;
-			}
+			this.updateSidebarStyles._styles.maxHeight = Math.min(
+				this.updateSidebarStyles._contentHeight - (this.updateSidebarStyles._scrollTop - this.updateSidebarStyles._contentOffset),
+				this.updateSidebarStyles._windowHeight - 48
+			);
 
 			this.$sidebar.css(this.updateSidebarStyles._styles);
 		}
@@ -8207,11 +11254,11 @@ Craft.ProgressBar = Garnish.Base.extend(
 
             if (animate)
             {
-                this.$innerProgressBar.stop().animate({ width: percentage+'%' }, 'fast');
+                this.$innerProgressBar.velocity('stop').velocity({ width: percentage+'%' }, 'fast');
             }
             else
             {
-                this.$innerProgressBar.stop().width(percentage+'%');
+                this.$innerProgressBar.velocity('stop').width(percentage+'%');
             }
 		}
     }
@@ -8422,9 +11469,14 @@ Craft.SlugGenerator = Craft.BaseInputGenerator.extend(
 		// Make it lowercase
 		sourceVal = sourceVal.toLowerCase();
 
-		// Get the "words".  Split on anything that is not a unicode letter or number.
-		// Preiods are OK, too.
-		var words = Craft.filterArray(XRegExp.matchChain(sourceVal, [XRegExp('[\\p{L}\\p{N}\\.]+')]));
+		if (Craft.limitAutoSlugsToAscii)
+		{
+			// Convert extended ASCII characters to basic ASCII
+			sourceVal = Craft.asciiString(sourceVal);
+		}
+
+		// Get the "words". Split on anything that is not alphanumeric.
+		var words = Craft.filterArray(XRegExp.matchChain(sourceVal, [XRegExp('[\\p{L}\\p{N}]+')]));
 
 		if (words.length)
 		{
@@ -8586,7 +11638,7 @@ Craft.Structure = Garnish.Base.extend(
 		}
 
 		$row.css('margin-bottom', -30);
-		$row.animate({ 'margin-bottom': 0 }, 'fast');
+		$row.velocity({ 'margin-bottom': 0 }, 'fast');
 	},
 
 	removeElement: function($element)
@@ -8603,7 +11655,7 @@ Craft.Structure = Garnish.Base.extend(
 			var $parentUl = $li.parent();
 		}
 
-		$li.css('visibility', 'hidden').animate({ marginBottom: -$li.height() }, 'fast', $.proxy(function()
+		$li.css('visibility', 'hidden').velocity({ marginBottom: -$li.height() }, 'fast', $.proxy(function()
 		{
 			$li.remove();
 
@@ -8687,7 +11739,7 @@ Craft.StructureDrag = Garnish.Drag.extend(
 
 		// Collapse the draggee
 		this.draggeeHeight = this.$draggee.height();
-		this.$draggee.animate({
+		this.$draggee.velocity({
 			height: 0
 		}, 'fast', $.proxy(function() {
 			this.$draggee.addClass('hidden');
@@ -8999,22 +12051,25 @@ Craft.StructureDrag = Garnish.Drag.extend(
 					{
 						var animateCss = {};
 						animateCss['padding-'+Craft.left] = 38;
-						this.$helperLi.animate(animateCss, 'fast');
+						this.$helperLi.velocity(animateCss, 'fast');
 					}
 					else if (newLevel == 1)
 					{
 						var animateCss = {};
 						animateCss['padding-'+Craft.left] = Craft.Structure.baseIndent;
-						this.$helperLi.animate(animateCss, 'fast');
+						this.$helperLi.velocity(animateCss, 'fast');
 					}
 
 					this.setLevel(this.$draggee, newLevel);
 				}
 
 				// Make it real
+				var $element = this.$draggee.children('.row').children('.element');
+
 				var data = {
 					structureId: this.structure.id,
-					elementId:   this.$draggee.children('.row').children('.element').data('id'),
+					elementId:   $element.data('id'),
+					locale:      $element.data('locale'),
 					prevId:      this.$draggee.prev().children('.row').children('.element').data('id'),
 					parentId:    this.$draggee.parent('ul').parent('li').children('.row').children('.element').data('id')
 				};
@@ -9031,7 +12086,7 @@ Craft.StructureDrag = Garnish.Drag.extend(
 		}
 
 		// Animate things back into place
-		this.$draggee.stop().removeClass('hidden').animate({
+		this.$draggee.velocity('stop').removeClass('hidden').velocity({
 			height: this.draggeeHeight
 		}, 'fast', $.proxy(function() {
 			this.$draggee.css('height', 'auto');
@@ -9064,16 +12119,678 @@ Craft.StructureDrag = Garnish.Drag.extend(
 });
 
 
+Craft.StructureTableSorter = Garnish.DragSort.extend({
+
+	// Properties
+	// =========================================================================
+
+	elementIndex: null,
+	structureId: null,
+	maxLevels: null,
+
+	_helperMargin: null,
+
+	_$firstRowCells: null,
+	_$titleHelperCell: null,
+
+	_titleHelperCellOuterWidth: null,
+
+	_ancestors: null,
+	_updateAncestorsFrame: null,
+	_updateAncestorsProxy: null,
+
+	_draggeeLevel: null,
+	_draggeeLevelDelta: null,
+	draggingLastElements: null,
+	_loadingDraggeeLevelDelta: false,
+
+	_targetLevel: null,
+	_targetLevelBounds: null,
+
+	_positionChanged: null,
+
+	// Public methods
+	// =========================================================================
+
+	/**
+	 * Constructor
+	 */
+	init: function(elementIndex, $elements, settings)
+	{
+		this.elementIndex = elementIndex;
+		this.structureId = this.elementIndex.$table.data('structure-id');
+		this.maxLevels = parseInt(this.elementIndex.$table.attr('data-max-levels'));
+
+		settings = $.extend({}, Craft.StructureTableSorter.defaults, settings, {
+			handle:           '.move',
+			collapseDraggees: true,
+			singleHelper:     true,
+			helperSpacingY:   2,
+			magnetStrength:   4,
+			helper:           $.proxy(this, 'getHelper'),
+			helperLagBase:    1.5,
+			axis:             Garnish.Y_AXIS
+		});
+
+		this.base($elements, settings);
+	},
+
+	/**
+	 * Start Dragging
+	 */
+	startDragging: function()
+	{
+		this._helperMargin = Craft.StructureTableSorter.HELPER_MARGIN + (this.elementIndex.actions ? 24 : 0);
+		this.base();
+	},
+
+	/**
+	 * Returns the draggee rows (including any descendent rows).
+	 */
+	findDraggee: function()
+	{
+		this._draggeeLevel = this._targetLevel = this.$targetItem.data('level');
+		this._draggeeLevelDelta = 0;
+
+		var $draggee = $(this.$targetItem),
+			$nextRow = this.$targetItem.next();
+
+		while ($nextRow.length)
+		{
+			// See if this row is a descendant of the draggee
+			var nextRowLevel = $nextRow.data('level');
+
+			if (nextRowLevel <= this._draggeeLevel)
+			{
+				break;
+			}
+
+			// Is this the deepest descendant we've seen so far?
+			var nextRowLevelDelta = nextRowLevel - this._draggeeLevel;
+
+			if (nextRowLevelDelta > this._draggeeLevelDelta)
+			{
+				this._draggeeLevelDelta = nextRowLevelDelta;
+			}
+
+			// Add it and prep the next row
+			$draggee = $draggee.add($nextRow);
+			$nextRow = $nextRow.next();
+		}
+
+		// Are we dragging the last elements on the page?
+		this.draggingLastElements = !$nextRow.length;
+
+		// Do we have a maxLevels to enforce,
+		// and does it look like this draggee has descendants we don't know about yet?
+		if (
+			this.maxLevels &&
+			this.draggingLastElements &&
+			this.elementIndex.morePending
+		)
+		{
+			// Only way to know the true descendant level delta is to ask PHP
+			this._loadingDraggeeLevelDelta = true;
+
+			var data = this._getAjaxBaseData(this.$targetItem);
+
+			Craft.postActionRequest('structures/getElementLevelDelta', data, $.proxy(function(response, textStatus)
+			{
+				if (textStatus == 'success')
+				{
+					this._loadingDraggeeLevelDelta = false;
+
+					if (this.dragging)
+					{
+						this._draggeeLevelDelta = response.delta;
+						this.drag(false);
+					}
+				}
+			}, this));
+		}
+
+		return $draggee;
+	},
+
+	/**
+	 * Returns the drag helper.
+	 */
+	getHelper: function($helperRow)
+	{
+		var $outerContainer = $('<div class="elements datatablesorthelper"/>').appendTo(Garnish.$bod),
+			$innerContainer = $('<div class="tableview"/>').appendTo($outerContainer),
+			$table = $('<table class="data"/>').appendTo($innerContainer),
+			$tbody = $('<tbody/>').appendTo($table);
+
+		$helperRow.appendTo($tbody);
+
+		// Copy the column widths
+		this._$firstRowCells = this.elementIndex.$elementContainer.children('tr:first').children();
+		var $helperCells = $helperRow.children();
+
+		for (var i = 0; i < $helperCells.length; i++)
+		{
+			var $helperCell = $($helperCells[i]);
+
+			// Skip the checkbox cell
+			if (Garnish.hasAttr($helperCell, 'data-checkboxcell'))
+			{
+				$helperCell.remove();
+				continue;
+			}
+
+			// Hard-set the cell widths
+			var $firstRowCell = $(this._$firstRowCells[i]),
+				width = $firstRowCell.width();
+
+			$firstRowCell.width(width);
+			$helperCell.width(width);
+
+			// Is this the title cell?
+			if (Garnish.hasAttr($firstRowCell, 'data-titlecell'))
+			{
+				this._$titleHelperCell = $helperCell;
+
+				var padding = parseInt($firstRowCell.css('padding-'+Craft.left));
+				this._titleHelperCellOuterWidth = width + padding - (this.elementIndex.actions ? 12 : 0);
+
+				$helperCell.css('padding-'+Craft.left, Craft.StructureTableSorter.BASE_PADDING);
+			}
+		}
+
+		return $outerContainer;
+	},
+
+	/**
+	 * Returns whether the draggee can be inserted before a given item.
+	 */
+	canInsertBefore: function($item)
+	{
+		if (this._loadingDraggeeLevelDelta)
+		{
+			return false;
+		}
+
+		return (this._getLevelBounds($item.prev(), $item) !== false);
+	},
+
+	/**
+	 * Returns whether the draggee can be inserted after a given item.
+	 */
+	canInsertAfter: function($item)
+	{
+		if (this._loadingDraggeeLevelDelta)
+		{
+			return false;
+		}
+
+		return (this._getLevelBounds($item, $item.next()) !== false);
+	},
+
+	// Events
+	// -------------------------------------------------------------------------
+
+	/**
+	 * On Drag Start
+	 */
+	onDragStart: function()
+	{
+		// Get the initial set of ancestors, before the item gets moved
+		this._ancestors = this._getAncestors(this.$targetItem, this.$targetItem.data('level'));
+
+		// Set the initial target level bounds
+		this._setTargetLevelBounds();
+
+		// Check to see if we should load more elements now
+		this.elementIndex.maybeLoadMore();
+
+		this.base();
+	},
+
+	/**
+	 * On Drag
+	 */
+	onDrag: function()
+	{
+		this.base();
+		this._updateIndent();
+	},
+
+	/**
+	 * On Insertion Point Change
+	 */
+	onInsertionPointChange: function()
+	{
+		this._setTargetLevelBounds();
+		this._updateAncestorsBeforeRepaint();
+		this.base();
+	},
+
+	/**
+	 * On Drag Stop
+	 */
+	onDragStop: function()
+	{
+		this._positionChanged = false;
+		this.base();
+
+		// Update the draggee's padding if the position just changed
+		// ---------------------------------------------------------------------
+
+		if (this._targetLevel != this._draggeeLevel)
+		{
+			var levelDiff = this._targetLevel - this._draggeeLevel;
+
+			for (var i = 0; i < this.$draggee.length; i++)
+			{
+				var $draggee = $(this.$draggee[i]),
+					oldLevel = $draggee.data('level'),
+					newLevel = oldLevel + levelDiff,
+					padding = Craft.StructureTableSorter.BASE_PADDING + (this.elementIndex.actions ? 14 : 0) + this._getLevelIndent(newLevel);
+
+				$draggee.data('level', newLevel);
+				$draggee.find('.element').data('level', newLevel);
+				$draggee.children('[data-titlecell]:first').css('padding-'+Craft.left, padding);
+			}
+
+			this._positionChanged = true;
+		}
+
+		// Keep in mind this could have also been set by onSortChange()
+		if (this._positionChanged)
+		{
+			// Tell the server about the new position
+			// -----------------------------------------------------------------
+
+			var data = this._getAjaxBaseData(this.$draggee);
+
+			// Find the previous sibling/parent, if there is one
+			var $prevRow = this.$draggee.first().prev();
+
+			while ($prevRow.length)
+			{
+				var prevRowLevel = $prevRow.data('level');
+
+				if (prevRowLevel == this._targetLevel)
+				{
+					data.prevId = $prevRow.data('id');
+					break;
+				}
+
+				if (prevRowLevel < this._targetLevel)
+				{
+					data.parentId = $prevRow.data('id');
+
+					// Is this row collapsed?
+					var $toggle = $prevRow.find('> td > .toggle');
+
+					if (!$toggle.hasClass('expanded'))
+					{
+						// Make it look expanded
+						$toggle.addClass('expanded');
+
+						// Add a temporary row
+						var $spinnerRow = this.elementIndex._createSpinnerRowAfter($prevRow);
+
+						// Remove the target item
+						if (this.elementIndex.elementSelect)
+						{
+							this.elementIndex.elementSelect.removeItems(this.$targetItem);
+						}
+
+						this.removeItems(this.$targetItem);
+						this.$targetItem.remove();
+						this.elementIndex._totalVisible--;
+					}
+
+					break;
+				}
+
+				$prevRow = $prevRow.prev();
+			}
+
+			Craft.postActionRequest('structures/moveElement', data, $.proxy(function(response, textStatus)
+			{
+				if (textStatus == 'success')
+				{
+					Craft.cp.displayNotice(Craft.t('New position saved.'));
+					this.onPositionChange();
+
+					// Were we waiting on this to complete so we can expand the new parent?
+					if ($spinnerRow && $spinnerRow.parent().length)
+					{
+						$spinnerRow.remove();
+						this.elementIndex._expandElement($toggle, true);
+					}
+
+					// See if we should run any pending tasks
+					Craft.cp.runPendingTasks();
+				}
+			}, this));
+		}
+	},
+
+	onSortChange: function()
+	{
+		if (this.elementIndex.elementSelect)
+		{
+			this.elementIndex.elementSelect.resetItemOrder();
+		}
+
+		this._positionChanged = true;
+		this.base();
+	},
+
+	onPositionChange: function()
+	{
+		Garnish.requestAnimationFrame($.proxy(function()
+		{
+			this.trigger('positionChange');
+			this.settings.onPositionChange();
+		}, this));
+	},
+
+	onReturnHelpersToDraggees: function()
+	{
+		this._$firstRowCells.css('width', '');
+
+		// If we were dragging the last elements on the page and ended up loading any additional elements in,
+		// there could be a gap between the last draggee item and whatever now comes after it.
+		// So remove the post-draggee elements and possibly load up the next batch.
+		if (this.draggingLastElements && this.elementIndex.morePending)
+		{
+			// Update the element index's record of how many items are actually visible
+			this.elementIndex._totalVisible += (this.newDraggeeIndexes[0] - this.oldDraggeeIndexes[0]);
+
+			var $postDraggeeItems = this.$draggee.last().nextAll();
+
+			if ($postDraggeeItems.length)
+			{
+				this.removeItems($postDraggeeItems);
+				$postDraggeeItems.remove();
+				this.elementIndex.maybeLoadMore();
+			}
+		}
+
+		this.base();
+	},
+
+	// Private methods
+	// =========================================================================
+
+	/**
+	 * Returns the min and max levels that the draggee could occupy between
+	 * two given rows, or false if it’s not going to work out.
+	 */
+	_getLevelBounds: function($prevRow, $nextRow)
+	{
+		// Can't go any lower than the next row, if there is one
+		if ($nextRow && $nextRow.length)
+		{
+			this._getLevelBounds._minLevel = $nextRow.data('level');
+		}
+		else
+		{
+			this._getLevelBounds._minLevel = 1;
+		}
+
+		// Can't go any higher than the previous row + 1
+		if ($prevRow && $prevRow.length)
+		{
+			this._getLevelBounds._maxLevel = $prevRow.data('level') + 1;
+		}
+		else
+		{
+			this._getLevelBounds._maxLevel = 1;
+		}
+
+		// Does this structure have a max level?
+		if (this.maxLevels)
+		{
+			// Make sure it's going to fit at all here
+			if (
+				this._getLevelBounds._minLevel != 1 &&
+				this._getLevelBounds._minLevel + this._draggeeLevelDelta > this.maxLevels
+			)
+			{
+				return false;
+			}
+
+			// Limit the max level if we have to
+			if (this._getLevelBounds._maxLevel + this._draggeeLevelDelta > this.maxLevels)
+			{
+				this._getLevelBounds._maxLevel = this.maxLevels - this._draggeeLevelDelta;
+
+				if (this._getLevelBounds._maxLevel < this._getLevelBounds._minLevel)
+				{
+					this._getLevelBounds._maxLevel = this._getLevelBounds._minLevel;
+				}
+			}
+		}
+
+		return {
+			min: this._getLevelBounds._minLevel,
+			max: this._getLevelBounds._maxLevel
+		};
+	},
+
+	/**
+	 * Determines the min and max possible levels at the current draggee's position.
+	 */
+	_setTargetLevelBounds: function()
+	{
+		this._targetLevelBounds = this._getLevelBounds(
+			this.$draggee.first().prev(),
+			this.$draggee.last().next()
+		);
+	},
+
+	/**
+	 * Determines the target level based on the current mouse position.
+	 */
+	_updateIndent: function(forcePositionChange)
+	{
+		// Figure out the target level
+		// ---------------------------------------------------------------------
+
+		// How far has the cursor moved?
+		this._updateIndent._mouseDist = this.realMouseX - this.mousedownX;
+
+		// Flip that if this is RTL
+		if (Craft.orientation == 'rtl')
+		{
+			this._updateIndent._mouseDist *= -1;
+		}
+
+		// What is that in indentation levels?
+		this._updateIndent._indentationDist = Math.round(this._updateIndent._mouseDist / Craft.StructureTableSorter.LEVEL_INDENT);
+
+		// Combine with the original level to get the new target level
+		this._updateIndent._targetLevel = this._draggeeLevel + this._updateIndent._indentationDist;
+
+		// Contain it within our min/max levels
+		if (this._updateIndent._targetLevel < this._targetLevelBounds.min)
+		{
+			this._updateIndent._indentationDist += (this._targetLevelBounds.min - this._updateIndent._targetLevel);
+			this._updateIndent._targetLevel = this._targetLevelBounds.min;
+		}
+		else if (this._updateIndent._targetLevel > this._targetLevelBounds.max)
+		{
+			this._updateIndent._indentationDist -= (this._updateIndent._targetLevel - this._targetLevelBounds.max);
+			this._updateIndent._targetLevel = this._targetLevelBounds.max;
+		}
+
+		// Has the target level changed?
+		if (this._targetLevel !== (this._targetLevel = this._updateIndent._targetLevel))
+		{
+			// Target level is changing, so update the ancestors
+			this._updateAncestorsBeforeRepaint();
+		}
+
+		// Update the UI
+		// ---------------------------------------------------------------------
+
+		// How far away is the cursor from the exact target level distance?
+		this._updateIndent._targetLevelMouseDiff = this._updateIndent._mouseDist - (this._updateIndent._indentationDist * Craft.StructureTableSorter.LEVEL_INDENT);
+
+		// What's the magnet impact of that?
+		this._updateIndent._magnetImpact = Math.round(this._updateIndent._targetLevelMouseDiff / 15);
+
+		// Put it on a leash
+		if (Math.abs(this._updateIndent._magnetImpact) > Craft.StructureTableSorter.MAX_GIVE)
+		{
+			this._updateIndent._magnetImpact = (this._updateIndent._magnetImpact > 0 ? 1 : -1) * Craft.StructureTableSorter.MAX_GIVE;
+		}
+
+		// Apply the new margin/width
+		this._updateIndent._closestLevelMagnetIndent = this._getLevelIndent(this._targetLevel) + this._updateIndent._magnetImpact;
+		this.helpers[0].css('margin-'+Craft.left, this._updateIndent._closestLevelMagnetIndent + this._helperMargin);
+		this._$titleHelperCell.width(this._titleHelperCellOuterWidth - (this._updateIndent._closestLevelMagnetIndent + Craft.StructureTableSorter.BASE_PADDING));
+	},
+
+	/**
+	 * Returns the indent size for a given level
+	 */
+	_getLevelIndent: function(level)
+	{
+		return (level - 1) * Craft.StructureTableSorter.LEVEL_INDENT;
+	},
+
+	/**
+	 * Returns the base data that should be sent with StructureController Ajax requests.
+	 */
+	_getAjaxBaseData: function($row)
+	{
+		return {
+			structureId: this.structureId,
+			elementId:   $row.data('id'),
+			locale:      $row.find('.element:first').data('locale')
+		};
+	},
+
+	/**
+	 * Returns a row's ancestor rows
+	 */
+	_getAncestors: function($row, targetLevel)
+	{
+		this._getAncestors._ancestors = [];
+
+		if (targetLevel != 0)
+		{
+			this._getAncestors._level = targetLevel;
+			this._getAncestors._$prevRow = $row.prev();
+
+			while (this._getAncestors._$prevRow.length)
+			{
+				if (this._getAncestors._$prevRow.data('level') < this._getAncestors._level)
+				{
+					this._getAncestors._ancestors.unshift(this._getAncestors._$prevRow);
+					this._getAncestors._level = this._getAncestors._$prevRow.data('level');
+
+					// Did we just reach the top?
+					if (this._getAncestors._level == 0)
+					{
+						break;
+					}
+				}
+
+				this._getAncestors._$prevRow = this._getAncestors._$prevRow.prev();
+			}
+		}
+
+		return this._getAncestors._ancestors;
+	},
+
+	/**
+	 * Prepares to have the ancestors updated before the screen is repainted.
+	 */
+	_updateAncestorsBeforeRepaint: function()
+	{
+		if (this._updateAncestorsFrame)
+		{
+			Garnish.cancelAnimationFrame(this._updateAncestorsFrame);
+		}
+
+		if (!this._updateAncestorsProxy)
+		{
+			this._updateAncestorsProxy = $.proxy(this, '_updateAncestors');
+		}
+
+		this._updateAncestorsFrame = Garnish.requestAnimationFrame(this._updateAncestorsProxy);
+	},
+
+	_updateAncestors: function()
+	{
+		this._updateAncestorsFrame = null;
+
+		// Update the old ancestors
+		// -----------------------------------------------------------------
+
+		for (this._updateAncestors._i = 0; this._updateAncestors._i < this._ancestors.length; this._updateAncestors._i++)
+		{
+			this._updateAncestors._$ancestor = this._ancestors[this._updateAncestors._i];
+
+			// One less descendant now
+			this._updateAncestors._$ancestor.data('descendants', this._updateAncestors._$ancestor.data('descendants') - 1);
+
+			// Is it now childless?
+			if (this._updateAncestors._$ancestor.data('descendants') == 0)
+			{
+				// Remove its toggle
+				this._updateAncestors._$ancestor.find('> td > .toggle:first').remove();
+			}
+		}
+
+		// Update the new ancestors
+		// -----------------------------------------------------------------
+
+		this._updateAncestors._newAncestors = this._getAncestors(this.$targetItem, this._targetLevel);
+
+		for (this._updateAncestors._i = 0; this._updateAncestors._i < this._updateAncestors._newAncestors.length; this._updateAncestors._i++)
+		{
+			this._updateAncestors._$ancestor = this._updateAncestors._newAncestors[this._updateAncestors._i];
+
+			// One more descendant now
+			this._updateAncestors._$ancestor.data('descendants', this._updateAncestors._$ancestor.data('descendants') + 1);
+
+			// Is this its first child?
+			if (this._updateAncestors._$ancestor.data('descendants') == 1)
+			{
+				// Create its toggle
+				$('<span class="toggle expanded" title="'+Craft.t('Show/hide children')+'"></span>')
+					.insertAfter(this._updateAncestors._$ancestor.find('> td .move:first'));
+
+			}
+		}
+
+		this._ancestors = this._updateAncestors._newAncestors;
+
+		delete this._updateAncestors._i;
+		delete this._updateAncestors._$ancestor;
+		delete this._updateAncestors._newAncestors;
+	}
+},
+
+// Static Properties
+// =============================================================================
+
+{
+	BASE_PADDING: 36,
+	HELPER_MARGIN: -7,
+	LEVEL_INDENT: 44,
+	MAX_GIVE: 22,
+
+	defaults: {
+		onPositionChange: $.noop
+	}
+});
+
+
 /**
  * Tag select input
  */
 Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 {
-	id: null,
-	name: null,
-	tagGroupId: null,
-	sourceElementId: null,
-	elementSort: null,
 	searchTimeout: null,
 	searchMenu: null,
 
@@ -9083,38 +12800,39 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 	$addTagInput: null,
 	$spinner: null,
 
-	init: function(id, name, tagGroupId, sourceElementId)
-	{
-		this.id = id;
-		this.name = name;
-		this.tagGroupId = tagGroupId;
-		this.sourceElementId = sourceElementId;
+	_ignoreBlur: false,
 
-		this.$container = $('#'+this.id);
-		this.$elementsContainer = this.$container.children('.elements');
-		this.$elements = this.$elementsContainer.children();
+	init: function(settings)
+	{
+		// Normalize the settings
+		// ---------------------------------------------------------------------
+
+		// Are they still passing in a bunch of arguments?
+		if (!$.isPlainObject(settings))
+		{
+			// Loop through all of the old arguments and apply them to the settings
+			var normalizedSettings = {},
+				args = ['id', 'name', 'tagGroupId', 'sourceElementId'];
+
+			for (var i = 0; i < args.length; i++)
+			{
+				if (typeof arguments[i] != typeof undefined)
+				{
+					normalizedSettings[args[i]] = arguments[i];
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			settings = normalizedSettings;
+		}
+
+		this.base($.extend({}, Craft.TagSelectInput.defaults, settings));
+
 		this.$addTagInput = this.$container.children('.add').children('.text');
 		this.$spinner = this.$addTagInput.next();
-
-		this.totalElements = this.$elements.length;
-
-		this.elementSelect = new Garnish.Select(this.$elements, {
-			multi: true,
-			filter: ':not(.delete)'
-		});
-
-		this.elementSort = new Garnish.DragSort({
-			container: this.$elementsContainer,
-			filter: $.proxy(function() {
-				return this.elementSelect.getSelectedItems();
-			}, this),
-			caboose: $('<div class="caboose"/>'),
-			onSortChange: $.proxy(function() {
-				this.elementSelect.resetItemOrder();
-			}, this)
-		});
-
-		this.initElements(this.$elements);
 
 		this.addListener(this.$addTagInput, 'textchange', $.proxy(function()
 		{
@@ -9149,6 +12867,12 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 
 		this.addListener(this.$addTagInput, 'blur', function()
 		{
+			if (this._ignoreBlur)
+			{
+				this._ignoreBlur = false;
+				return;
+			}
+
 			setTimeout($.proxy(function()
 			{
 				if (this.searchMenu)
@@ -9158,6 +12882,9 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 			}, this), 1);
 		});
 	},
+
+	// No "add" button
+	getAddElementsBtn: $.noop,
 
 	searchForTags: function()
 	{
@@ -9184,14 +12911,14 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 				}
 			}
 
-			if (this.sourceElementId)
+			if (this.settings.sourceElementId)
 			{
-				excludeIds.push(this.sourceElementId);
+				excludeIds.push(this.settings.sourceElementId);
 			}
 
 			var data = {
 				search:     this.$addTagInput.val(),
-				tagGroupId: this.tagGroupId,
+				tagGroupId: this.settings.tagGroupId,
 				excludeIds: excludeIds
 			};
 
@@ -9207,7 +12934,7 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 					for (var i = 0; i < response.tags.length; i++)
 					{
 						var $li = $('<li/>').appendTo($ul);
-						$('<a data-icon="tag"/>').appendTo($li).text(response.tags[i].name).data('id', response.tags[i].id);
+						$('<a data-icon="tag"/>').appendTo($li).text(response.tags[i].title).data('id', response.tags[i].id);
 					}
 
 					if (!response.exactMatch)
@@ -9222,6 +12949,11 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 						attachToElement: this.$addTagInput,
 						onOptionSelect: $.proxy(this, 'selectTag')
 					});
+
+					this.addListener($menu, 'mousedown', $.proxy(function()
+					{
+						this._ignoreBlur = true;
+					}, this));
 
 					this.searchMenu.show();
 				}
@@ -9238,25 +12970,24 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 	{
 		var $option = $(option),
 			id = $option.data('id'),
-			name = $option.text();
+			title = $option.text();
 
-		var $element = $('<div class="element removable" data-id="'+id+'" data-editable="1"/>').appendTo(this.$elementsContainer),
-			$input = $('<input type="hidden" name="'+this.name+'[]" value="'+id+'"/>').appendTo($element)
+		var $element = $('<div class="element removable" data-id="'+id+'" data-editable/>').appendTo(this.$elementsContainer),
+			$input = $('<input type="hidden" name="'+this.settings.name+'[]" value="'+id+'"/>').appendTo($element)
 
 		$('<a class="delete icon" title="'+Craft.t('Remove')+'"></a>').appendTo($element);
-		$('<span class="label">'+name+'</span>').appendTo($element);
+		$('<span class="label">'+title+'</span>').appendTo($element);
 
 		var margin = -($element.outerWidth()+10);
 		this.$addTagInput.css('margin-'+Craft.left, margin+'px');
 
 		var animateCss = {};
 		animateCss['margin-'+Craft.left] = 0;
-		this.$addTagInput.animate(animateCss, 'fast');
+		this.$addTagInput.velocity(animateCss, 'fast');
 
 		this.$elements = this.$elements.add($element);
-		this.totalElements++;
 
-		this.initElements($element);
+		this.addElements($element);
 
 		this.killSearchMenu();
 		this.$addTagInput.val('');
@@ -9268,8 +12999,8 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 			$element.addClass('loading disabled');
 
 			var data = {
-				groupId: this.tagGroupId,
-				name: name
+				groupId: this.settings.tagGroupId,
+				title: title
 			};
 
 			Craft.postActionRequest('tags/createTag', data, $.proxy(function(response, textStatus)
@@ -9301,7 +13032,11 @@ Craft.TagSelectInput = Craft.BaseElementSelectInput.extend(
 		this.searchMenu.destroy();
 		this.searchMenu = null;
 	}
-
+},
+{
+	defaults: {
+		tagGroupId: null
+	}
 });
 
 
@@ -9443,12 +13178,12 @@ Craft.UpgradeModal = Garnish.Modal.extend(
 			clearTimeout(this.clearCheckoutFormTimeout);
 		}
 
-		this.$compareScreen.stop().animateLeft(-width, 'fast', $.proxy(function()
+		this.$compareScreen.velocity('stop').animateLeft(-width, 'fast', $.proxy(function()
 		{
 			this.$compareScreen.addClass('hidden');
 		}, this));
 
-		this.$checkoutScreen.stop().css(Craft.left, width).removeClass('hidden').animateLeft(0, 'fast');
+		this.$checkoutScreen.velocity('stop').css(Craft.left, width).removeClass('hidden').animateLeft(0, 'fast');
 	},
 
 	onTestBtnClick: function(ev)
@@ -9463,7 +13198,7 @@ Craft.UpgradeModal = Garnish.Modal.extend(
 			{
 				var width = this.getWidth();
 
-				this.$compareScreen.stop().animateLeft(-width, 'fast', $.proxy(function()
+				this.$compareScreen.velocity('stop').animateLeft(-width, 'fast', $.proxy(function()
 				{
 					this.$compareScreen.addClass('hidden');
 				}, this));
@@ -9477,8 +13212,8 @@ Craft.UpgradeModal = Garnish.Modal.extend(
 	{
 		var width = this.getWidth();
 
-		this.$compareScreen.stop().removeClass('hidden').animateLeft(0, 'fast');
-		this.$checkoutScreen.stop().animateLeft(width, 'fast', $.proxy(function()
+		this.$compareScreen.velocity('stop').removeClass('hidden').animateLeft(0, 'fast');
+		this.$checkoutScreen.velocity('stop').animateLeft(width, 'fast', $.proxy(function()
 		{
 			this.$checkoutScreen.addClass('hidden');
 		}, this))
@@ -9589,7 +13324,7 @@ Craft.UpgradeModal = Garnish.Modal.extend(
 			{
 				var width = this.getWidth();
 
-				this.$checkoutScreen.stop().animateLeft(-width, 'fast', $.proxy(function()
+				this.$checkoutScreen.velocity('stop').animateLeft(-width, 'fast', $.proxy(function()
 				{
 					this.$checkoutScreen.addClass('hidden');
 				}, this));
@@ -9682,27 +13417,30 @@ Craft.UpgradeModal = Garnish.Modal.extend(
  */
 Craft.Uploader = Garnish.Base.extend(
 {
-    uploader: null,
+	uploader: null,
 	allowedKinds: null,
-	_rejectedFiles: [],
 	$element: null,
+	settings: null,
+	_rejectedFiles: {},
 	_extensionList: null,
-	_fileCounter: 0,
+	_totalFileCounter: 0,
+	_validFileCounter: 0,
 
-    init: function($element, settings)
-    {
-		this._rejectedFiles = [];
+	init: function($element, settings)
+	{
+		this._rejectedFiles = {"size": [], "type": [], "limit": []};
 		this.$element = $element;
 		this.allowedKinds = null;
 		this._extensionList = null;
-		this._fileCounter = 0;
+		this._totalFileCounter = 0;
+		this._validFileCounter = 0;
 
-        settings = $.extend({}, this.defaultSettings, settings);
+		settings = $.extend({}, this.defaultSettings, settings);
 
 		var events = settings.events;
 		delete settings.events;
 
-		if ( settings.allowedKinds && settings.allowedKinds.length)
+		if (settings.allowedKinds && settings.allowedKinds.length)
 		{
 			if (typeof settings.allowedKinds == "string")
 			{
@@ -9711,8 +13449,9 @@ Craft.Uploader = Garnish.Base.extend(
 
 			this.allowedKinds = settings.allowedKinds;
 			delete settings.allowedKinds;
-			settings.autoUpload = false;
 		}
+
+		settings.autoUpload = false;
 
 		this.uploader = $element.fileupload(settings);
 		for (var event in events)
@@ -9720,87 +13459,112 @@ Craft.Uploader = Garnish.Base.extend(
 			this.uploader.on(event, events[event]);
 		}
 
-		if (settings.dropZone != null)
-		{
-			$(document).bind('drop dragover', function(e)
-			{
-				e.preventDefault();
-			});
-		}
+		this.settings = settings;
 
-		if (this.allowedKinds)
-		{
-			this.uploader.on('fileuploadadd', $.proxy(this, 'onFileAdd'));
-		}
+		this.uploader.on('fileuploadadd', $.proxy(this, 'onFileAdd'));
 	},
 
-    /**
-     * Set uploader parameters
-     * @param paramObject
-     */
-    setParams: function(paramObject)
-    {
-        this.uploader.fileupload('option', {formData: paramObject});
-    },
+	/**
+	 * Set uploader parameters.
+	 */
+	setParams: function(paramObject)
+	{
+		// If CSRF protection isn't enabled, these won't be defined.
+		if (typeof Craft.csrfTokenName !== 'undefined' && typeof Craft.csrfTokenValue !== 'undefined')
+		{
+			// Add the CSRF token
+			paramObject[Craft.csrfTokenName] = Craft.csrfTokenValue;
+		}
 
-    /**
-     * Get the number of uploads in progress
-     * @returns {*}
-     */
-    getInProgress: function()
-    {
-        return this.uploader.fileupload('active');
-    },
+		this.uploader.fileupload('option', {formData: paramObject});
+	},
 
 	/**
-	 * Return true, if this is the last upload
-	 * @returns {boolean}
+	 * Get the number of uploads in progress.
+	 */
+	getInProgress: function()
+	{
+		return this.uploader.fileupload('active');
+	},
+
+	/**
+	 * Return true, if this is the last upload.
 	 */
 	isLastUpload: function()
 	{
-		return this.getInProgress() == 1;
+		// Processing the last file or not processing at all.
+		return this.getInProgress() < 2;
 	},
 
 	/**
-	 * Called on file add
+	 * Called on file add.
 	 */
 	onFileAdd: function(e, data)
 	{
 		e.stopPropagation();
 
-		if (!this._extensionList)
+		var validateExtension = false;
+
+		if (this.allowedKinds)
 		{
-			this._extensionList = [];
-
-			for (var i = 0; i < this.allowedKinds.length; i++)
+			if (!this._extensionList)
 			{
-				var allowedKind = this.allowedKinds[i];
+				this._extensionList = [];
 
-				for (var j = 0; j < Craft.fileKinds[allowedKind].length; j++)
+				for (var i = 0; i < this.allowedKinds.length; i++)
 				{
-					var ext = Craft.fileKinds[allowedKind][j];
-					this._extensionList.push(ext);
+					var allowedKind = this.allowedKinds[i];
+
+					for (var j = 0; j < Craft.fileKinds[allowedKind].length; j++)
+					{
+						var ext = Craft.fileKinds[allowedKind][j];
+						this._extensionList.push(ext);
+					}
 				}
 			}
+			validateExtension = true;
 		}
 
+		// Make sure that file API is there before relying on it
 		data.process().done($.proxy(function()
 		{
 			var file = data.files[0];
-			var matches = file.name.match(/\.([a-z0-4_]+)$/i);
-			var fileExtension = matches[1];
-			if ($.inArray(fileExtension.toLowerCase(), this._extensionList) > -1)
+			var pass = true;
+			if (validateExtension)
 			{
-				data.submit();
-			}
-			else
-			{
-				this._rejectedFiles.push('"' + file.name + '"');
+
+				var matches = file.name.match(/\.([a-z0-4_]+)$/i);
+				var fileExtension = matches[1];
+				if ($.inArray(fileExtension.toLowerCase(), this._extensionList) == -1)
+				{
+					pass = false;
+					this._rejectedFiles.type.push('“' + file.name + '”');
+				}
 			}
 
-			if (++this._fileCounter == data.originalFiles.length)
+			if (file.size > this.settings.maxFileSize)
 			{
-				this._fileCounter = 0;
+				this._rejectedFiles.size.push('“' + file.name + '”');
+				pass = false;
+			}
+
+			// If the validation has passed for this file up to now, check if we're not hitting any limits
+			if (pass && typeof this.settings.canAddMoreFiles == "function" && !this.settings.canAddMoreFiles(this._validFileCounter))
+			{
+				this._rejectedFiles.limit.push('“' + file.name + '”');
+				pass = false;
+			}
+
+			if (pass)
+			{
+				this._validFileCounter++;
+				data.submit();
+			}
+
+			if (++this._totalFileCounter == data.originalFiles.length)
+			{
+				this._totalFileCounter = 0;
+				this._validFileCounter = 0;
 				this.processErrorMessages();
 			}
 
@@ -9809,11 +13573,14 @@ Craft.Uploader = Garnish.Base.extend(
 		return true;
 	},
 
+	/**
+	 * Process error messages.
+	 */
 	processErrorMessages: function()
 	{
-		if (this._rejectedFiles.length)
+		if (this._rejectedFiles.type.length)
 		{
-			if (this._rejectedFiles.length == 1)
+			if (this._rejectedFiles.type.length == 1)
 			{
 				var str = "The file {files} could not be uploaded. The allowed file kinds are: {kinds}.";
 			}
@@ -9822,21 +13589,76 @@ Craft.Uploader = Garnish.Base.extend(
 				var str = "The files {files} could not be uploaded. The allowed file kinds are: {kinds}.";
 			}
 
-			str = Craft.t(str, {files: this._rejectedFiles.join(", "), kinds: this.allowedKinds.join(", ")});
-			this._rejectedFiles = [];
+			str = Craft.t(str, {files: this._rejectedFiles.type.join(", "), kinds: this.allowedKinds.join(", ")});
+			this._rejectedFiles.type = [];
+			alert(str);
+		}
+
+		if (this._rejectedFiles.size.length)
+		{
+			if (this._rejectedFiles.size.length == 1)
+			{
+				var str = "The file {files} could not be uploaded, because it exceeds the maximum upload size of {size}.";
+			}
+			else
+			{
+				var str = "The files {files} could not be uploaded, because they exceeded the maximum upload size of {size}.";
+			}
+
+			str = Craft.t(str, {files: this._rejectedFiles.size.join(", "), size: this.humanFileSize(Craft.maxUploadSize)});
+			this._rejectedFiles.size = [];
+			alert(str);
+		}
+
+		if (this._rejectedFiles.limit.length)
+		{
+			if (this._rejectedFiles.limit.length == 1)
+			{
+				var str = "The file {files} could not be uploaded, because the field limit has been reached.";
+			}
+			else
+			{
+				var str = "The files {files} could not be uploaded, because the field limit has been reached.";
+			}
+
+			str = Craft.t(str, {files: this._rejectedFiles.limit.join(", ")});
+			this._rejectedFiles.limit = [];
 			alert(str);
 		}
 	},
 
-    defaultSettings: {
-        dropZone: null,
+	humanFileSize: function (bytes, si)
+	{
+		var threshold = 1024;
+
+		if(bytes < threshold)
+		{
+			return bytes + ' B';
+		}
+
+		var units = ['kB','MB','GB','TB','PB','EB','ZB','YB'];
+
+		var u = -1;
+
+		do
+		{
+			bytes = bytes /threshold;
+			++u;
+		}
+		while(bytes >= threshold);
+
+		return bytes.toFixed(1)+' '+units[u];
+	},
+
+	defaultSettings: {
+		dropZone: null,
 		pasteZone: null,
 		fileInput: null,
-		autoUpload: true,
 		sequentialUploads: true,
 		maxFileSize: Craft.maxUploadSize,
-		alloweKinds: null,
-		events: {}
+		allowedKinds: null,
+		events: {},
+		canAddMoreFiles: null
 	}
 });
 

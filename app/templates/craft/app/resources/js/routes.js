@@ -1,11 +1,9 @@
 /**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.resources
  */
 
 (function($) {
@@ -171,7 +169,7 @@ var RouteSettingsModal = Garnish.Modal.extend(
 	{
 		this.route = route;
 
-		var tokenHtml = '<h4>'+Craft.t("Add a token")+'</h4>';
+		var tokenHtml = '<h4>'+Craft.t('Add a token')+'</h4>';
 
 		for (var name in Craft.routes.tokens)
 		{
@@ -187,7 +185,7 @@ var RouteSettingsModal = Garnish.Modal.extend(
 				'<div class="body">' +
 					'<div class="field">' +
 						'<div class="heading">' +
-							'<label for="url">'+Craft.t("If the URI looks like this")+':</label>' +
+							'<label for="url">'+Craft.t('If the URI looks like this')+':</label>' +
 						'</div>';
 
 		if (Craft.routes.locales)
@@ -230,18 +228,18 @@ var RouteSettingsModal = Garnish.Modal.extend(
 				'</div>' +
 				'<div class="field">' +
 					'<div class="heading">' +
-						'<label for="template">'+Craft.t("Load this template")+':</label>' +
+						'<label for="template">'+Craft.t('Load this template')+':</label>' +
 					'</div>' +
 					'<input id="template" type="text" class="text fullwidth template ltr">' +
 				'</div>' +
 			'</div>' +
 			'<div class="footer">' +
 				'<div class="buttons right last">' +
-					'<input type="button" class="btn cancel" value="'+Craft.t("Cancel")+'">' +
-					'<input type="submit" class="btn submit" value="'+Craft.t("Save")+'"> ' +
+					'<input type="button" class="btn cancel" value="'+Craft.t('Cancel')+'">' +
+					'<input type="submit" class="btn submit" value="'+Craft.t('Save')+'"> ' +
 					'<div class="spinner" style="display: none;"></div>' +
 				'</div>' +
-				'<a class="delete">'+Craft.t("Delete")+'</a>' +
+				'<a class="delete">'+Craft.t('Delete')+'</a>' +
 			'</div>' +
 		'</form>';
 

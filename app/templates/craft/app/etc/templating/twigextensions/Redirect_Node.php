@@ -2,22 +2,26 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class Redirect_Node
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.etc.templating.twigextensions
+ * @since     1.0
  */
 class Redirect_Node extends \Twig_Node
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
 	 * Compiles a Redirect_Node into PHP.
+	 *
+	 * @param \Twig_Compiler $compiler
+	 *
+	 * @return null
 	 */
 	public function compile(\Twig_Compiler $compiler)
 	{
@@ -25,6 +29,8 @@ class Redirect_Node extends \Twig_Node
 		    ->addDebugInfo($this)
 		    ->write('\Craft\craft()->request->redirect(\Craft\UrlHelper::getUrl(')
 		    ->subcompile($this->getNode('path'))
-		    ->raw("));\n");
+		    ->raw("), true, ")
+		    ->subcompile($this->getNode('httpStatusCode'))
+		    ->raw(");\n");
 	}
 }

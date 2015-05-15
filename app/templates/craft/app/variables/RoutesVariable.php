@@ -2,20 +2,20 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Route functions.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Route functions
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.variables
+ * @since     1.0
  */
 class RoutesVariable
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
 	 * Returns the routes defined in the CP.
 	 *
@@ -31,8 +31,6 @@ class RoutesVariable
 			->order('sortOrder')
 			->queryAll();
 
-		$results = RouteRecord::model()->ordered()->findAll();
-
 		foreach ($results as $result)
 		{
 			$urlDisplayHtml = '';
@@ -46,7 +44,7 @@ class RoutesVariable
 				}
 				else
 				{
-					$urlDisplayHtml .= '<span class="token" data-name="'.$part[0].'" data-value="'.$part[1].'"><span>'.$part[0].'</span></span>';
+					$urlDisplayHtml .= HtmlHelper::encodeParams('<span class="token" data-name="{partZero}" data-value="{partOne}"><span>{partZero}</span></span>', array('partZero' => $part[0], 'partOne' => $part[1]));
 				}
 			}
 

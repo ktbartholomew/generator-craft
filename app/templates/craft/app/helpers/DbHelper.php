@@ -2,24 +2,23 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class DbHelper
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.helpers
+ * @since     1.0
  */
 class DbHelper
 {
+	// Properties
+	// =========================================================================
+
 	/**
-	 * Default column configs
+	 * The default column configs.
 	 *
-	 * @static
 	 * @var array
 	 */
 	public static $columnTypeDefaults = array(
@@ -35,22 +34,27 @@ class DbHelper
 	);
 
 	/**
-	 * Numeric column types
+	 * Numeric column types.
 	 *
-	 * @access private
-	 * @static
 	 * @var array
 	 */
 	private static $_numericColumnTypes = array(ColumnType::TinyInt, ColumnType::SmallInt, ColumnType::MediumInt, ColumnType::Int, ColumnType::BigInt, ColumnType::Decimal);
 
 	/**
-	 * Textual column types
+	 * Textual column types.
 	 *
-	 * @access private
-	 * @static
 	 * @var array
 	 */
 	private static $_textualColumnTypes = array(ColumnType::Char, ColumnType::Varchar, ColumnType::TinyText, ColumnType::Text, ColumnType::MediumText, ColumnType::LongText);
+
+	/**
+	 * @var array
+	 */
+	private static $_operators = array('not ', '!=', '<=', '>=', '<', '>', '=');
+
+	// Public Methods
+	// =========================================================================
+
 	/**
 	 * Normalizes a column's config.
 	 *
@@ -60,10 +64,10 @@ class DbHelper
 	 * 2. array(ColumnType::TypeName [, 'other' => 'settings' ... ] )
 	 * 3. array('column' => ColumnType::TypeName [, 'other' => 'settings' ... ] )
 	 *
-	 * This function normalizes on the 3rd, merges in the default config settings for the column type,
-	 * and renames 'maxLength' to 'length'
+	 * This function normalizes on the 3rd, merges in the default config settings for the column type, and renames 'maxLength' to 'length'.
 	 *
 	 * @param string|array $config
+	 *
 	 * @return array
 	 */
 	public static function normalizeAttributeConfig($config)
@@ -113,14 +117,20 @@ class DbHelper
 	}
 
 	/**
-	 * Generates the column definition SQL for a column
+	 * Generates the column definition SQL for a column.
 	 *
 	 * @param array $config
+	 *
 	 * @return string
-	 * @static
 	 */
 	public static function generateColumnDefinition($config)
 	{
+		// Don't do anything to PKs.
+		if ($config === ColumnType::PK)
+		{
+			return $config;
+		}
+
 		$config = static::normalizeAttributeConfig($config);
 
 		// Start the column definition
@@ -242,202 +252,281 @@ class DbHelper
 	/**
 	 * Prepares a table name for Yii to add its table prefix
 	 *
-	 * @static
 	 * @param mixed $table The table name or an array of table names
+	 *
+	 * @deprecated Deprecated in Craft 2.2. Use {@link DbCommand::addTablePrefix() craft()->db->addTablePrefix()} instead.
 	 * @return mixed The modified table name(s)
 	 */
 	public static function addTablePrefix($table)
 	{
-		if (is_array($table))
-		{
-			foreach ($table as $key => $t)
-			{
-				$table[$key] = static::addTablePrefix($t);
-			}
-		}
-		else
-		{
-			$table = preg_replace('/^\w+/', craft()->db->tablePrefix.'\0', $table);
-		}
-
-		return $table;
+		// TODO: Add deprecation log in 3.0
+		return craft()->db->addTablePrefix($table);
 	}
 
 	/**
 	 * Returns a foreign key name based on the table and column names.
 	 *
-	 * @param string $table
+	 * @param string       $table
 	 * @param string|array $columns
+	 *
+	 * @deprecated Deprecated in Craft 2.2. Use {@link DbCommand::getForeignKeyName() craft()->db->getForeignKeyName()} instead.
 	 * @return string
 	 */
 	public static function getForeignKeyName($table, $columns)
 	{
-		$columns = ArrayHelper::stringToArray($columns);
-		$name = craft()->db->tablePrefix.$table.'_'.implode('_', $columns).'_fk';
-		return static::normalizeDbObjectName($name);
+		// TODO: Add deprecation log in 3.0
+		return craft()->db->getForeignKeyName($table, $columns);
 	}
 
 	/**
 	 * Returns an index name based on the table, column names, and whether it should be unique.
 	 *
-	 * @param string $table
+	 * @param string       $table
 	 * @param string|array $columns
-	 * @param bool $unique
+	 * @param bool         $unique
+	 *
+	 * @deprecated Deprecated in Craft 2.2. Use {@link DbCommand::getIndexName() craft()->db->getIndexName()} instead.
 	 * @return string
 	 */
 	public static function getIndexName($table, $columns, $unique = false)
 	{
-		$columns = ArrayHelper::stringToArray($columns);
-		$name = craft()->db->tablePrefix.$table.'_'.implode('_', $columns).($unique ? '_unq' : '').'_idx';
-		return static::normalizeDbObjectName($name);
+		// TODO: Add deprecation log in 3.0
+		return craft()->db->getIndexName($table, $columns, $unique);
+
 	}
 
 	/**
 	 * Returns a primary key name based on the table and column names.
 	 *
-	 * @param string $table
+	 * @param string       $table
 	 * @param string|array $columns
-	 * @param bool $unique
+	 *
+	 * @deprecated Deprecated in Craft 2.2. Use {@link DbCommand::getPrimaryKeyName() craft()->db->getPrimaryKeyName()} instead.
 	 * @return string
 	 */
 	public static function getPrimaryKeyName($table, $columns)
 	{
-		$columns = ArrayHelper::stringToArray($columns);
-		$name = craft()->db->tablePrefix.$table.'_'.implode('_', $columns).'_pk';
-		return static::normalizeDbObjectName($name);
+		// TODO: Add deprecation log in 3.0
+		return craft()->db->getPrimaryKeyName($table, $columns);
 	}
 
 	/**
 	 * Ensures that an object name is within the schema's limit.
 	 *
-	 * @static
 	 * @param string $name
+	 *
+	 * @deprecated Deprecated in Craft 2.2. Use {@link DbCommand::trimObjectName() craft()->db->trimObjectName()} instead.
 	 * @return string
 	 */
 	public static function normalizeDbObjectName($name)
 	{
-		// TODO: MySQL specific
-		// MySQL indexes can't be more than 64 characters (see http://dev.mysql.com/doc/refman/5.0/en/identifiers.html)
-		$maxLength = 64;
-
-		$name = trim($name, '_');
-		$nameLength = mb_strlen($name);
-
-		if ($nameLength > $maxLength)
-		{
-			$parts = array_filter(explode('_', $name));
-			$totalParts = count($parts);
-			$totalLetters = $nameLength - ($totalParts-1);
-			$maxLetters = $maxLength - ($totalParts-1);
-
-			// Consecutive underscores could have put this name over the top
-			if ($totalLetters > $maxLetters)
-			{
-				foreach ($parts as $i => $part)
-				{
-					$newLength = round($maxLetters * mb_strlen($part) / $totalLetters);
-					$parts[$i] = mb_substr($part, 0, $newLength);
-				}
-			}
-
-			$name = implode('_', $parts);
-
-			// Just to be safe
-			if (mb_strlen($name) > $maxLength)
-			{
-				$name = mb_substr($name, 0, $maxLength);
-			}
-		}
-
-		return $name;
+		// TODO: Add deprecation log in 3.0
+		return craft()->db->trimObjectName($name);
 	}
 
 	/**
-	 * @static
 	 * @return array
 	 */
 	public static function getAuditColumnConfig()
 	{
 		return array(
-			'dateCreated' => array('column' => ColumnType::DateTime,  'required' => true),
-			'dateUpdated' => array('column' => ColumnType::DateTime,  'required' => true),
+			'dateCreated' => array('column' => ColumnType::DateTime, 'required' => true),
+			'dateUpdated' => array('column' => ColumnType::DateTime, 'required' => true),
 			'uid'         => array('column' => ColumnType::Char, 'length' => 36, 'required' => true, 'default' => 0)
 		);
 	}
 
 	/**
-	 * Parses a service param value to a DbCommand where condition.
+	 * Returns the maximum number of bytes a given textual column type can hold for a given database.
 	 *
-	 * @param string $key
-	 * @param string|array $values
-	 * @param array &$params
+	 * @param        $columnType The textual column type to check.
+	 * @param string $database   The type of database to use.
+	 *
+	 * @return int The storage capacity of the column type in bytes.
+	 */
+	public static function getTextualColumnStorageCapacity($columnType, $database = 'mysql')
+	{
+		switch ($database)
+		{
+			case 'mysql':
+			{
+				switch ($columnType)
+				{
+					case ColumnType::TinyText:
+					{
+						// 255 bytes
+						return 255;
+					}
+
+					case ColumnType::Text:
+					{
+						// 65k
+						return 65535;
+					}
+
+					case ColumnType::MediumText:
+					{
+						// 16MB
+						return 16777215;
+					}
+
+					case ColumnType::LongText:
+					{
+						// 4GB
+						return 4294967295;
+					}
+				}
+
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Given a length of a piece of content, returns the underlying database column type to use for saving.
+	 *
+	 * @param $contentLength
+	 *
+	 * @return string
+	 */
+	public static function getTextualColumnTypeByContentLength($contentLength)
+	{
+		if ($contentLength <= static::getTextualColumnStorageCapacity(ColumnType::TinyText))
+		{
+			return ColumnType::Varchar;
+		}
+		else if ($contentLength <= static::getTextualColumnStorageCapacity(ColumnType::Text))
+		{
+			return ColumnType::Text;
+		}
+		else if ($contentLength <= static::getTextualColumnStorageCapacity(ColumnType::MediumText))
+		{
+			return ColumnType::MediumText;
+		}
+		else
+		{
+			return ColumnType::LongText;
+		}
+	}
+
+	/**
+	 * Escapes commas and asterisks in a string so they are not treated as special characters in
+	 * {@link DbHelper::parseParam()}.
+	 *
+	 * @param string $value The param value.
+	 *
+	 * @return string The escaped param value.
+	 */
+	public static function escapeParam($value)
+	{
+		return str_replace(array(',', '*'), array('\,', '\*'), $value);
+	}
+
+	/**
+	 * Parses a query param value and returns a {@link \CDbCommand::where()}-compatible condition.
+	 *
+	 * If the `$value` is a string, it will automatically be converted to an array, split on any commas within the
+	 * string (via {@link ArrayHelper::stringToArray()}). If that is not desired behavior, you can escape the comma
+	 * with a backslash before it.
+	 *
+	 * The first value can be set to either `'and'` or `'or'` to define whether *all* of the values must match, or
+	 * *any*. If it’s neither `'and'` nor `'or'`, then `'or'` will be assumed.
+	 *
+	 * Values can begin with the operators `'not '`, `'!='`, `'<='`, `'>='`, `'<'`, `'>'`, or `'='`. If they don’t,
+	 * `'='` will be assumed.
+	 *
+	 * Values can also be set to either `':empty:'` or `':notempty:'` if you want to search for empty or non-empty
+	 * database values. (An “empty” value is either NULL or an empty string of text).
+	 *
+	 * @param string       $column  The database column that the param is targeting.
+	 * @param string|array $value   The param value(s).
+	 * @param array        &$params The {@link \CDbCommand::$params} array.
+	 *
 	 * @return mixed
 	 */
-	public static function parseParam($key, $values, &$params)
+	public static function parseParam($column, $value, &$params)
 	{
-		// Need to do a strict check here in case $values = true
-		if ($values === 'not ')
+		// Need to do a strict check here in case $value = true
+		if ($value === 'not ')
 		{
 			return '';
 		}
 
 		$conditions = array();
 
-		$values = ArrayHelper::stringToArray($values);
+		$value = ArrayHelper::stringToArray($value);
 
-		if (!count($values))
+		if (!count($value))
 		{
 			return '';
 		}
 
-		$firstVal = StringHelper::toLowerCase($values[0]);
+		$firstVal = StringHelper::toLowerCase(ArrayHelper::getFirstValue($value));
 
 		if ($firstVal == 'and' || $firstVal == 'or')
 		{
-			$join = array_shift($values);
+			$join = array_shift($value);
 		}
 		else
 		{
 			$join = 'or';
 		}
 
-		foreach ($values as $value)
+		foreach ($value as $val)
 		{
-			if ($value === null)
-			{
-				$value = ':empty:';
-			}
-			else if (StringHelper::toLowerCase($value) == ':notempty:')
-			{
-				$value = 'not :empty:';
-			}
+			static::_normalizeEmptyValue($val);
+			$operator = static::_parseParamOperator($val);
 
-			$operator = static::_parseParamOperator($value);
-
-			if (StringHelper::toLowerCase($value) == ':empty:')
+			if (StringHelper::toLowerCase($val) == ':empty:')
 			{
 				if ($operator == '=')
 				{
-					$conditions[] = array('or', $key.' is null', $key.' = ""');
+					$conditions[] = array('or', $column.' is null', $column.' = ""');
 				}
 				else
 				{
-					$conditions[] = array('and', $key.' is not null', $key.' != ""');
+					$conditions[] = array('and', $column.' is not null', $column.' != ""');
 				}
 			}
 			else
 			{
-				// Find a unique param name
-				$paramKey = ':'.str_replace('.', '', $key);
-				$i = 1;
-				while (isset($params[$paramKey.$i]))
+				// Trim any whitespace from the value
+				$val = trim($val);
+
+				// This could be a LIKE condition
+				if ($operator == '=' || $operator == '!=')
 				{
-					$i++;
+					$val = preg_replace('/^\*|(?<!\\\)\*$/', '%', $val, -1, $count);
+					$like = (bool) $count;
+				}
+				else
+				{
+					$like = false;
 				}
 
-				$param = $paramKey.$i;
-				$params[$param] = trim($value);
-				$conditions[] = $key.$operator.$param;
+				// Unescape any asterisks
+				$val = str_replace('\*', '*', $val);
+
+				if ($like)
+				{
+					$conditions[] = array(($operator == '=' ? 'like' : 'not like'), $column, $val);
+				}
+				else
+				{
+					// Find a unique param name
+					$paramKey = ':'.str_replace('.', '', $column);
+					$i = 1;
+
+					while (isset($params[$paramKey.$i]))
+					{
+						$i++;
+					}
+
+					$param = $paramKey.$i;
+					$params[$param] = $val;
+
+					$conditions[] = $column.$operator.$param;
+				}
 			}
 		}
 
@@ -455,69 +544,95 @@ class DbHelper
 	/**
 	 * Normalizes date params and then sends them off to parseParam().
 	 *
-	 * @param string $key
-	 * @param string|array|DateTime $values
-	 * @param array &$params
+	 * @param string                $column
+	 * @param string|array|DateTime $value
+	 * @param array                 &$params
+	 *
 	 * @return mixed
 	 */
-	public static function parseDateParam($key, $values, &$params)
+	public static function parseDateParam($column, $value, &$params)
 	{
 		$normalizedValues = array();
 
-		$values = ArrayHelper::stringToArray($values);
+		$value = ArrayHelper::stringToArray($value);
 
-		if (!count($values))
+		if (!count($value))
 		{
 			return '';
 		}
 
-		if ($values[0] == 'and' || $values[0] == 'or')
+		if ($value[0] == 'and' || $value[0] == 'or')
 		{
-			$normalizedValues[] = $values[0];
-			array_shift($values);
+			$normalizedValues[] = $value[0];
+			array_shift($value);
 		}
 
-		foreach ($values as $value)
+		foreach ($value as $val)
 		{
-			if (is_string($value))
+			// Is this an empty value?
+			static::_normalizeEmptyValue($val);
+
+			if ($val == ':empty:' || $val == 'not :empty:')
 			{
-				$operator = static::_parseParamOperator($value);
+				$normalizedValues[] = $val;
+
+				// Sneak out early
+				continue;
+			}
+
+			if (is_string($val))
+			{
+				$operator = static::_parseParamOperator($val);
 			}
 			else
 			{
 				$operator = '=';
 			}
 
-			if (!$value instanceof \DateTime)
+			if (!$val instanceof \DateTime)
 			{
-				$value = DateTime::createFromString($value, craft()->getTimeZone());
+				$val = DateTime::createFromString($val, craft()->getTimeZone());
 			}
 
-			$normalizedValues[] = $operator.DateTimeHelper::formatTimeForDb($value->getTimestamp());
+			$normalizedValues[] = $operator.DateTimeHelper::formatTimeForDb($val->getTimestamp());
 		}
 
-		return static::parseParam($key, $normalizedValues, $params);
+		return static::parseParam($column, $normalizedValues, $params);
 	}
 
+	// Private Methods
+	// =========================================================================
+
 	/**
-	 * @access private
-	 * @static
+	 * Normalizes “empty” values.
+	 *
+	 * @param string &$value The param value.
 	 */
-	private static $_operators = array('not ', '!=', '<=', '>=', '<', '>', '=');
+	private static function _normalizeEmptyValue(&$value)
+	{
+		if ($value === null)
+		{
+			$value = ':empty:';
+		}
+		else if (StringHelper::toLowerCase($value) == ':notempty:')
+		{
+			$value = 'not :empty:';
+		}
+	}
 
 	/**
 	 * Extracts the operator from a DB param and returns it.
 	 *
-	 * @access private
-	 * @param string &$value
-	 * @return string
+	 * @param string &$value Te param value.
+	 *
+	 * @return string The operator.
 	 */
 	private static function _parseParamOperator(&$value)
 	{
 		foreach (static::$_operators as $testOperator)
 		{
 			// Does the value start with this operator?
-			$operatorLength = mb_strlen($testOperator);
+			$operatorLength = strlen($testOperator);
 
 			if (strncmp(StringHelper::toLowerCase($value), $testOperator, $operatorLength) == 0)
 			{

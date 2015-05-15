@@ -6,10 +6,11 @@
 
 
 {% set content %}
-	<form method="post" accept-charset="UTF-8" data-saveshortcut="1">
+	<form method="post" accept-charset="UTF-8" data-saveshortcut>
 		<input type="hidden" name="action" value="assetSources/saveSource">
 		<input type="hidden" name="redirect" value="settings/assets">
 		{% if not isNewSource %}<input type="hidden" name="sourceId" value="{{ source.id }}">{% endif %}
+		{{ getCsrfInput() }}
 
 		<div id="assetsource-settings">
 			{{ forms.textField({
@@ -24,7 +25,17 @@
 				translatable: true
 			}) }}
 
-			{% if CraftEdition == CraftPro %}
+            {{ forms.textField({
+                first: true,
+                label: "Handle"|t,
+                id: 'handle',
+                name: 'handle',
+                value: (source is defined ? source.handle : null),
+                errors: (source is defined ? source.getErrors('handle') : null),
+                required: true,
+            }) }}
+
+            {% if CraftEdition == CraftPro %}
 				<hr>
 
 				{% includeJsResource "js/asseteditsourcesettings.js" %}
@@ -74,3 +85,8 @@
 		</div>
 	</form>
 {% endset %}
+
+
+{% if source is not defined or not source.handle %}
+    {% includeJs "new Craft.HandleGenerator('#name', '#handle');" %}
+{% endif %}

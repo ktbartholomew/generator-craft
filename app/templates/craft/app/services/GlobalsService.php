@@ -2,24 +2,42 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class GlobalsService
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.services
+ * @since     1.0
  */
 class GlobalsService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_allGlobalSetIds;
+
+	/**
+	 * @var
+	 */
 	private $_editableGlobalSetIds;
+
+	/**
+	 * @var
+	 */
 	private $_allGlobalSets;
+
+	/**
+	 * @var
+	 */
 	private $_globalSetsById;
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Returns all of the global set IDs.
@@ -67,6 +85,7 @@ class GlobalsService extends BaseApplicationComponent
 	 * Returns all global sets.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getAllSets($indexBy = null)
@@ -104,6 +123,7 @@ class GlobalsService extends BaseApplicationComponent
 	 * Returns all global sets that are editable by the current user.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getEditableSets($indexBy = null)
@@ -153,13 +173,19 @@ class GlobalsService extends BaseApplicationComponent
 	/**
 	 * Returns a global set by its ID.
 	 *
-	 * @param int $globalSetId
+	 * @param int         $globalSetId
 	 * @param string|null $localeId
+	 *
 	 * @return GlobalSetModel|null
 	 */
 	public function getSetById($globalSetId, $localeId = null)
 	{
-		if (!$localeId || $localeId == craft()->language)
+		if (!$localeId)
+		{
+			$localeId = craft()->language;
+		}
+
+		if ($localeId == craft()->language)
 		{
 			if (!isset($this->_allGlobalSets))
 			{
@@ -178,9 +204,46 @@ class GlobalsService extends BaseApplicationComponent
 	}
 
 	/**
+	 * Returns a global set by its handle.
+	 *
+	 * @param int         $globalSetHandle
+	 * @param string|null $localeId
+	 *
+	 * @return GlobalSetModel|null
+	 */
+	public function getSetByHandle($globalSetHandle, $localeId = null)
+	{
+		if (!$localeId)
+		{
+			$localeId = craft()->language;
+		}
+
+		if ($localeId == craft()->language)
+		{
+			$globalSets = $this->getAllSets();
+
+			foreach ($globalSets as $globalSet)
+			{
+				if ($globalSet->handle == $globalSetHandle)
+				{
+					return $globalSet;
+				}
+			}
+		}
+		else
+		{
+			$criteria = craft()->elements->getCriteria(ElementType::GlobalSet);
+			$criteria->locale = $localeId;
+			$criteria->handle = $globalSetHandle;
+			return $criteria->first();
+		}
+	}
+
+	/**
 	 * Saves a global set.
 	 *
 	 * @param GlobalSetModel $globalSet
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -194,7 +257,7 @@ class GlobalsService extends BaseApplicationComponent
 
 			if (!$globalSetRecord)
 			{
-				throw new Exception(Craft::t('No global set exists with the ID “{id}”', array('id' => $globalSet->id)));
+				throw new Exception(Craft::t('No global set exists with the ID “{id}”.', array('id' => $globalSet->id)));
 			}
 
 			$oldSet = GlobalSetModel::populateModel($globalSetRecord);
@@ -231,7 +294,7 @@ class GlobalsService extends BaseApplicationComponent
 
 					// Save the new one
 					$fieldLayout = $globalSet->getFieldLayout();
-					craft()->fields->saveLayout($fieldLayout, false);
+					craft()->fields->saveLayout($fieldLayout);
 
 					// Update the set record/model with the new layout ID
 					$globalSet->fieldLayoutId = $fieldLayout->id;
@@ -265,9 +328,10 @@ class GlobalsService extends BaseApplicationComponent
 	 * Deletes a global set by its ID.
 	 *
 	 * @param int $setId
+	 *
 	 * @throws \Exception
 	 * @return bool
-	*/
+	 */
 	public function deleteSetById($setId)
 	{
 		if (!$setId)
@@ -314,32 +378,94 @@ class GlobalsService extends BaseApplicationComponent
 	 * Saves a global set's content
 	 *
 	 * @param GlobalSetModel $globalSet
+	 *
+	 * @throws \CDbException
+	 * @throws \Exception
 	 * @return bool
 	 */
 	public function saveContent(GlobalSetModel $globalSet)
 	{
-		if (craft()->elements->saveElement($globalSet))
+		$transaction = craft()->db->getCurrentTransaction() === null ? craft()->db->beginTransaction() : null;
+
+		try
+		{
+			// Fire an 'onBeforeSaveGlobalContent' event
+			$event = new Event($this, array(
+				'globalSet' => $globalSet
+			));
+
+			$this->onBeforeSaveGlobalContent($event);
+
+			// Is the event giving us the go-ahead?
+			if ($event->performAction)
+			{
+				$success = craft()->elements->saveElement($globalSet);
+
+				// If it didn't work, rollback the transaction in case something changed in onBeforeSaveGlobalContent
+				if (!$success)
+				{
+					if ($transaction !== null)
+					{
+						$transaction->rollback();
+					}
+
+					return false;
+				}
+			}
+			else
+			{
+				$success = false;
+			}
+
+			// Commit the transaction regardless of whether we saved the user, in case something changed
+			// in onBeforeSaveGlobalContent
+			if ($transaction !== null)
+			{
+				$transaction->commit();
+			}
+		}
+		catch (\Exception $e)
+		{
+			if ($transaction !== null)
+			{
+				$transaction->rollback();
+			}
+
+			throw $e;
+		}
+
+		if ($success)
 		{
 			// Fire an 'onSaveGlobalContent' event
 			$this->onSaveGlobalContent(new Event($this, array(
 				'globalSet' => $globalSet
 			)));
+		}
 
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		return $success;
 	}
 
 	/**
 	 * Fires an 'onSaveGlobalContent' event.
 	 *
 	 * @param Event $event
+	 *
+	 * @return null
 	 */
 	public function onSaveGlobalContent(Event $event)
 	{
 		$this->raiseEvent('onSaveGlobalContent', $event);
+	}
+
+	/**
+	 * Fires an 'onBeforeSaveGlobalContent' event.
+	 *
+	 * @param Event $event
+	 *
+	 * @return null
+	 */
+	public function onBeforeSaveGlobalContent(Event $event)
+	{
+		$this->raiseEvent('onBeforeSaveGlobalContent', $event);
 	}
 }

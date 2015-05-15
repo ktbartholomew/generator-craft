@@ -1,11 +1,9 @@
 /**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.resources
  */
 
 (function($) {
@@ -44,22 +42,8 @@ Craft.EntryTypeSwitcher = Garnish.Base.extend(
 				this.$fields.pane();
 				Craft.initUiElements(this.$fields);
 
-				var html = '';
-
-				if (response.headHtml)
-				{
-					html += response.headHtml;
-				}
-
-				if (response.footHtml)
-				{
-					html += response.footHtml;
-				}
-
-				if (html)
-				{
-					$(html).appendTo(Garnish.$bod);
-				}
+				Craft.appendHeadHtml(response.headHtml);
+				Craft.appendFootHtml(response.footHtml);
 
 				// Update the slug generator with the new title input
 				if (typeof slugGenerator != "undefined")

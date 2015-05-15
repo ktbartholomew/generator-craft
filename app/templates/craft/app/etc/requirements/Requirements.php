@@ -2,21 +2,23 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class Requirements
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-
-/**
- * Requirements class
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.etc.requirements
+ * @since     1.2
  */
 class Requirements
 {
+	// Public Methods
+	// =========================================================================
+
+	/**
+	 * @return array
+	 */
 	public static function getRequirements()
 	{
 		$requiredMysqlVersion = '5.1.0';
@@ -73,11 +75,18 @@ class Requirements
 				Craft::t('<a href="http://php.net/manual/en/book.mcrypt.php">Mcrypt</a> is required.')
 			),
 			new Requirement(
-				Craft::t('GD extension with FreeType support or Imagick extension'),
-				extension_loaded('gd') || extension_loaded('imagick'),
-				true,
+				Craft::t('GD extension with FreeType support'),
+				extension_loaded('gd'),
+				(!extension_loaded('imagick')), // Only required if ImageMagick isn't installed
 				'<a href="http://buildwithcraft.com">Craft</a>',
-				'<a href="http://php.net/manual/en/book.image.php">GD</a> or <a href="http://php.net/manual/en/class.imagick.php">Imagick</a> is required.'
+				'<a href="http://php.net/manual/en/book.image.php">GD</a> or <a href="http://php.net/manual/en/book.imagick.php">ImageMagick</a> is required, however ImageMagick is recommended as it adds animated GIF support, and preserves 8-bit and 24-bit PNGs during image transforms.'
+			),
+			new Requirement(
+				Craft::t('ImageMagick extension'),
+				extension_loaded('imagick'),
+				(!extension_loaded('gd')), // Only required if GD isn't installed
+				'<a href="http://buildwithcraft.com">Craft</a>',
+				'<a href="http://php.net/manual/en/book.image.php">GD</a> or <a href="http://php.net/manual/en/book.imagick.php">ImageMagick</a> is required, however ImageMagick is recommended as it adds animated GIF support, and preserves 8-bit and 24-bit PNGs during image transforms.'
 			),
 			new Requirement(
 				Craft::t('MySQL version'),
@@ -128,18 +137,14 @@ class Requirements
 				'<a href="http://buildwithcraft.com">Craft</a>',
 				Craft::t('Craft requires the <a href="http://www.php.net/manual/en/book.mbstring.php">Multibyte String extension</a> with <a href="http://php.net/manual/en/mbstring.overload.php">Function Overloading</a> disabled in order to run.')
 			),
-			new Requirement(
-				Craft::t('iconv support'),
-				function_exists('iconv'),
-				false,
-				'<a href="http://buildwithcraft.com">Craft</a>',
-				Craft::t('Craft requires <a href="http://php.net/manual/en/book.iconv.php">iconv</a> in order to run.')
-			),
+			new IconvRequirement(),
 		);
 	}
 
+	// Private Methods
+	// =========================================================================
+
 	/**
-	 * @access private
 	 * @return string
 	 */
 	private static function _checkServerVar()
@@ -176,7 +181,6 @@ class Requirements
 	/**
 	 * Checks to see if the MySQL InnoDB storage engine is installed and enabled.
 	 *
-	 * @access private
 	 * @return bool
 	 */
 	private function _isInnoDbEnabled()
@@ -196,16 +200,47 @@ class Requirements
 }
 
 /**
- * Requirement class
+ * Requirement class.
+ *
+ * @package craft.app.etc.requirements
  */
 class Requirement extends \CComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var null|string
+	 */
 	private $_name;
+
+	/**
+	 * @var bool|null
+	 */
 	private $_condition;
+
+	/**
+	 * @var null|string
+	 */
 	private $_requiredBy;
+
+	/**
+	 * @var null|string
+	 */
 	private $_notes;
+
+	/**
+	 * @var bool|null
+	 */
 	private $_required;
+
+	/**
+	 * @var
+	 */
 	private $_result;
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Constructor
@@ -215,36 +250,16 @@ class Requirement extends \CComponent
 	 * @param bool|null   $required
 	 * @param string|null $requiredBy
 	 * @param string|null $notes
+	 *
+	 * @return Requirement
 	 */
-	function __construct($name = null, $condition = null, $required = true, $requiredBy = null, $notes = null)
+	public function __construct($name = null, $condition = null, $required = true, $requiredBy = null, $notes = null)
 	{
 		$this->_name = $name;
 		$this->_condition = $condition;
 		$this->_required = $required;
 		$this->_requiredBy = $requiredBy;
 		$this->_notes = $notes;
-	}
-
-	/**
-	 * Calculates the result of this requirement.
-	 *
-	 * @access protected
-	 * @return string
-	 */
-	protected function calculateResult()
-	{
-		if ($this->_condition)
-		{
-			return RequirementResult::Success;
-		}
-		else if ($this->_required)
-		{
-			return RequirementResult::Failed;
-		}
-		else
-		{
-			return RequirementResult::Warning;
-		}
 	}
 
 	/**
@@ -291,23 +306,51 @@ class Requirement extends \CComponent
 	{
 		return $this->_notes;
 	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * Calculates the result of this requirement.
+	 *
+	 * @return string
+	 */
+	protected function calculateResult()
+	{
+		if ($this->_condition)
+		{
+			return RequirementResult::Success;
+		}
+		else if ($this->_required)
+		{
+			return RequirementResult::Failed;
+		}
+		else
+		{
+			return RequirementResult::Warning;
+		}
+	}
 }
 
 /**
- * PHP version requirement class
+ * PHP version requirement class.
+ *
+ * @package craft.app.etc.requirements
  */
 class PhpVersionRequirement extends Requirement
 {
+	// Constants
+	// =========================================================================
+
 	const REQUIRED_PHP_VERSION = '5.3.0';
 
+	// Protected Methods
+	// =========================================================================
+
 	/**
-	 * @param      $name
-	 * @param      $condition
-	 * @param bool $required
-	 * @param null $requiredBy
-	 * @param null $notes
+	 * @return PhpVersionRequirement
 	 */
-	function __construct()
+	public function __construct()
 	{
 		parent::__construct(
 			Craft::t('PHP Version'),
@@ -337,10 +380,12 @@ class PhpVersionRequirement extends Requirement
 		}
 	}
 
+	// Protected Methods
+	// =========================================================================
+
 	/**
 	 * Calculates the result of this requirement.
 	 *
-	 * @access protected
 	 * @return string
 	 */
 	protected function calculateResult()
@@ -364,10 +409,12 @@ class PhpVersionRequirement extends Requirement
 		}
 	}
 
+	// Private Methods
+	// =========================================================================
+
 	/**
 	 * Returns whether this is past the min PHP version.
 	 *
-	 * @access private
 	 * @return bool
 	 */
 	private function _doesMinVersionPass()
@@ -378,7 +425,6 @@ class PhpVersionRequirement extends Requirement
 	/**
 	 * Returns whether this is one of the bad PHP versions.
 	 *
-	 * @access private
 	 * @return bool
 	 */
 	private function _isBadPhpVersion()
@@ -387,5 +433,77 @@ class PhpVersionRequirement extends Requirement
 			(version_compare(PHP_VERSION, '5.3', '>=') && version_compare(PHP_VERSION, '5.3.12', '<')) ||
 			(version_compare(PHP_VERSION, '5.4', '>=') && version_compare(PHP_VERSION, '5.4.2', '<'))
 		);
+	}
+}
+
+/**
+ * Iconv requirement class.
+ *
+ * @package craft.app.etc.requirements
+ */
+class IconvRequirement extends Requirement
+{
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * @return PhpVersionRequirement
+	 */
+	public function __construct()
+	{
+		parent::__construct(
+			Craft::t('iconv support'),
+			null,
+			false,
+			'<a href="http://buildwithcraft.com">Craft</a>'
+		);
+	}
+
+	/**
+	 * @return null
+	 */
+	public function getNotes()
+	{
+		if ($this->getResult() == RequirementResult::Warning)
+		{
+			return Craft::t('You have a buggy version of iconv installed. (See {url1} and {url2}.)', array(
+				'url1' => '<a href="https://bugs.php.net/bug.php?id=48147">PHP bug #48147</a>',
+				'url2' => '<a href="http://sourceware.org/bugzilla/show_bug.cgi?id=13541">iconv bug #13541</a>',
+			));
+		}
+		else
+		{
+			return Craft::t('{url} is recommended.', array(
+				'url' => '<a href="http://php.net/manual/en/book.iconv.php">iconv</a>',
+			));
+		}
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * Calculates the result of this requirement.
+	 *
+	 * @return string
+	 */
+	protected function calculateResult()
+	{
+		if (function_exists('iconv'))
+		{
+			// See if it's the buggy version
+			if (\HTMLPurifier_Encoder::testIconvTruncateBug() != \HTMLPurifier_Encoder::ICONV_OK)
+			{
+				return RequirementResult::Warning;
+			}
+			else
+			{
+				return RequirementResult::Success;
+			}
+		}
+		else
+		{
+			return RequirementResult::Warning;
+		}
 	}
 }

@@ -14,4 +14,5 @@ return array(
     'Imagine' => array($vendorDir . '/imagine/imagine/lib'),
     'Guzzle\\Tests' => array($vendorDir . '/guzzle/guzzle/tests'),
     'Guzzle' => array($vendorDir . '/guzzle/guzzle/src'),
+    'Doctrine\\Instantiator\\' => array($vendorDir . '/doctrine/instantiator/src'),
 );

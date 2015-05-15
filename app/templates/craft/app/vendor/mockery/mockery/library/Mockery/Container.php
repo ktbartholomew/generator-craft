@@ -14,7 +14,7 @@
  *
  * @category   Mockery
  * @package    Mockery
- * @copyright  Copyright (c) 2010 Pádraic Brady (http://blog.astrumfutura.com)
+ * @copyright  Copyright (c) 2010-2014 Pádraic Brady (http://blog.astrumfutura.com)
  * @license    http://github.com/padraic/mockery/blob/master/LICENSE New BSD License
  */
 
@@ -23,8 +23,6 @@ namespace Mockery;
 use Mockery\Generator\Generator;
 use Mockery\Generator\MockConfigurationBuilder;
 use Mockery\Loader\Loader as LoaderInterface;
-use Mockery\Loader\EvalLoader;
-use Mockery\Loader\RequireLoader;
 
 class Container
 {
@@ -87,6 +85,8 @@ class Container
      * names or partials - just so long as it's something that can be mocked.
      * I'll refactor it one day so it's easier to follow.
      *
+     * @throws Exception\RuntimeException
+     * @throws Exception
      * @return \Mockery\Mock
      */
     public function mock()
@@ -136,20 +136,20 @@ class Container
                 array_shift($args);
 
                 continue;
-            } else if (is_string($arg) && substr($arg, 0, 6) == 'alias:') {
+            } elseif (is_string($arg) && substr($arg, 0, 6) == 'alias:') {
                 $name = array_shift($args);
                 $name = str_replace('alias:', '', $name);
                 $builder->addTarget('stdClass');
                 $builder->setName($name);
                 continue;
-            } else if (is_string($arg) && substr($arg, 0, 9) == 'overload:') {
+            } elseif (is_string($arg) && substr($arg, 0, 9) == 'overload:') {
                 $name = array_shift($args);
                 $name = str_replace('overload:', '', $name);
                 $builder->setInstanceMock(true);
                 $builder->addTarget('stdClass');
                 $builder->setName($name);
                 continue;
-            } else if (is_string($arg) && substr($arg, strlen($arg)-1, 1) == ']') {
+            } elseif (is_string($arg) && substr($arg, strlen($arg)-1, 1) == ']') {
                 $parts = explode('[', $arg);
                 if (!class_exists($parts[0], true) && !interface_exists($parts[0], true)) {
                     throw new \Mockery\Exception('Can only create a partial mock from'
@@ -162,15 +162,15 @@ class Container
                 $builder->setWhiteListedMethods($partialMethods);
                 array_shift($args);
                 continue;
-            } else if (is_string($arg) && (class_exists($arg, true) || interface_exists($arg, true))) {
+            } elseif (is_string($arg) && (class_exists($arg, true) || interface_exists($arg, true))) {
                 $class = array_shift($args);
                 $builder->addTarget($class);
                 continue;
-            } else if (is_string($arg)) {
+            } elseif (is_string($arg)) {
                 $class = array_shift($args);
                 $builder->addTarget($class);
                 continue;
-            } else if (is_object($arg)) {
+            } elseif (is_object($arg)) {
                 $partial = array_shift($args);
                 $builder->addTarget($partial);
                 continue;
@@ -179,7 +179,7 @@ class Container
                 if(array_key_exists(self::BLOCKS, $arg)) $blocks = $arg[self::BLOCKS]; unset($arg[self::BLOCKS]);
                 $quickdefs = array_shift($args);
                 continue;
-            } else if (is_array($arg)) {
+            } elseif (is_array($arg)) {
                 $constructorArgs = array_shift($args);
                 continue;
             }
@@ -205,6 +205,14 @@ class Container
         $this->checkForNamedMockClashes($config);
 
         $def = $this->getGenerator()->generate($config);
+
+        if (class_exists($def->getClassName(), $attemptAutoload = false)) {
+            $rfc = new \ReflectionClass($def->getClassName());
+            if (!$rfc->implementsInterface("Mockery\MockInterface")) {
+                throw new \Mockery\Exception\RuntimeException("Could not load mock {$def->getClassName()}, class already exists");
+            }
+        }
+
         $this->getLoader()->load($def);
 
         $mock = $this->_getInstance($def->getClassName(), $constructorArgs);
@@ -236,8 +244,35 @@ class Container
     }
 
     /**
+     * @param string $method
+     * @return string|null
+     */
+    public function getKeyOfDemeterMockFor($method)
+    {
+
+        $keys = array_keys($this->_mocks);
+        $match = preg_grep("/__demeter_{$method}$/", $keys);
+        if (count($match) == 1) {
+            $res = array_values($match);
+            if (count($res) > 0) {
+                return $res[0];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @return array
+     */
+    public function getMocks()
+    {
+        return $this->_mocks;
+    }
+
+    /**
      *  Tear down tasks for this container
      *
+     * @throws \Exception
      * @return void
      */
     public function mockery_teardown()
@@ -426,7 +461,37 @@ class Container
             return $r->newInstanceArgs($constructorArgs);
         }
 
-        $return = unserialize(sprintf('O:%d:"%s":0:{}', strlen($mockName), $mockName));
+        $isInternal = $r->isInternal();
+        $child = $r;
+        while (!$isInternal && $parent = $child->getParentClass()) {
+            $isInternal = $parent->isInternal();
+            $child = $parent;
+        }
+
+        try {
+            if (version_compare(PHP_VERSION, '5.4') < 0 || $isInternal) {
+                $return = unserialize(sprintf(
+                    '%s:%d:"%s":0:{}',
+                    // see https://github.com/sebastianbergmann/phpunit-mock-objects/pull/176/files
+                    (version_compare(PHP_VERSION, '5.4', '>') && $r->implementsInterface('Serializable') ? 'C' : 'O'),
+                    strlen($mockName),
+                    $mockName)
+                );
+            } else {
+                $return = $r->newInstanceWithoutConstructor();
+            }
+        } catch (\Exception $ex) {
+            $internalMockName = $mockName . '_Internal';
+
+            if (!class_exists($internalMockName)) {
+                eval("class $internalMockName extends $mockName {" .
+                        'public function __construct() {}' .
+                    '}');
+            }
+
+            $return = new $internalMockName();
+        }
+
         return $return;
     }
 
@@ -444,7 +509,7 @@ class Container
             );
         }
         if (false !== strpos($fqcn, "\\")) {
-            $parts = array_filter(explode("\\", $fqcn), function($part) {
+            $parts = array_filter(explode("\\", $fqcn), function ($part) {
                 return $part !== "";
             });
             $cl = array_pop($parts);

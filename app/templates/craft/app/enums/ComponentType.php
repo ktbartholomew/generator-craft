@@ -2,24 +2,27 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * The ComponentType class is an abstract class that defines all of the component types that are available in Craft.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * This class is a poor man's version of an enum, since PHP does not have support for native enumerations.
+ *
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.enums
+ * @since     1.0
  */
 abstract class ComponentType extends BaseEnum
 {
-	const AssetSource = 'assetSource';
-	const Element     = 'element';
-	const Field       = 'field';
-	const Task        = 'task';
-	const Tool        = 'tool';
-	const Widget      = 'widget';
+	// Constants
+	// =========================================================================
+
+	const AssetSource   = 'assetSource';
+	const Element       = 'element';
+	const ElementAction = 'elementAction';
+	const Field         = 'field';
+	const Task          = 'task';
+	const Tool          = 'tool';
+	const Widget        = 'widget';
 }

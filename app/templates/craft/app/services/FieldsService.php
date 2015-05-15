@@ -2,41 +2,81 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class FieldsService
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.services
+ * @since     1.0
  */
 class FieldsService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var string
+	 */
 	public $oldFieldColumnPrefix = 'field_';
 
+	/**
+	 * @var
+	 */
 	private $_groupsById;
+
+	/**
+	 * @var bool
+	 */
 	private $_fetchedAllGroups = false;
 
+	/**
+	 * @var
+	 */
 	private $_fieldRecordsById;
+
+	/**
+	 * @var
+	 */
 	private $_fieldsById;
+
+	/**
+	 * @var
+	 */
 	private $_allFieldsInContext;
+
+	/**
+	 * @var
+	 */
 	private $_fieldsByContextAndHandle;
+
+	/**
+	 * @var
+	 */
 	private $_fieldsWithContent;
 
+	/**
+	 * @var
+	 */
 	private $_layoutsById;
+
+	/**
+	 * @var
+	 */
 	private $_layoutsByType;
 
+	// Public Methods
+	// =========================================================================
+
 	// Groups
-	// ======
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all field groups.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getAllGroups($indexBy = null)
@@ -81,6 +121,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a field group by its ID.
 	 *
 	 * @param int $groupId
+	 *
 	 * @return FieldGroupModel|null
 	 */
 	public function getGroupById($groupId)
@@ -110,6 +151,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Saves a field group.
 	 *
 	 * @param FieldGroupModel $group
+	 *
 	 * @return bool
 	 */
 	public function saveGroup(FieldGroupModel $group)
@@ -140,6 +182,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Deletes a field group.
 	 *
 	 * @param int $groupId
+	 *
 	 * @return bool
 	 */
 	public function deleteGroupById($groupId)
@@ -151,8 +194,8 @@ class FieldsService extends BaseApplicationComponent
 			return false;
 		}
 
-		// Manually delete the fields (rather than relying on cascade deletes)
-		// so we have a chance to delete the content columns
+		// Manually delete the fields (rather than relying on cascade deletes) so we have a chance to delete the
+		// content columns
 		foreach ($groupRecord->fields as $fieldRecord)
 		{
 			$field = FieldModel::populateModel($fieldRecord);
@@ -164,12 +207,13 @@ class FieldsService extends BaseApplicationComponent
 	}
 
 	// Fields
-	// ======
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all fields.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getAllFields($indexBy = null)
@@ -226,9 +270,7 @@ class FieldsService extends BaseApplicationComponent
 
 			foreach ($this->getAllFields() as $field)
 			{
-				$fieldType = $field->getFieldType();
-
-				if ($fieldType && $fieldType->defineContentAttribute())
+				if ($field->hasContentColumn())
 				{
 					$this->_fieldsWithContent[$context][] = $field;
 				}
@@ -242,6 +284,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a field by its ID.
 	 *
 	 * @param int $fieldId
+	 *
 	 * @return FieldModel|null
 	 */
 	public function getFieldById($fieldId)
@@ -272,6 +315,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a field by its handle.
 	 *
 	 * @param string $handle
+	 *
 	 * @return FieldModel|null
 	 */
 	public function getFieldByHandle($handle)
@@ -304,6 +348,7 @@ class FieldsService extends BaseApplicationComponent
 	 *
 	 * @param int         $groupId
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getFieldsByGroupId($groupId, $indexBy = null)
@@ -335,6 +380,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Validates a field's settings.
 	 *
 	 * @param FieldModel $field
+	 *
 	 * @return bool
 	 */
 	public function validateField(FieldModel $field)
@@ -360,8 +406,8 @@ class FieldsService extends BaseApplicationComponent
 		// Give the field type a chance to prep the settings from post
 		$preppedSettings = $fieldType->prepSettings($field->settings);
 
-		// Set the prepped settings on the FieldRecord, FieldModel, and the field type
-		$fieldRecord->settings = $field->settings = $preppedSettings;
+		// Set the prepped settings on the FieldRecord and the field type
+		$fieldRecord->settings = $preppedSettings;
 		$fieldType->setSettings($preppedSettings);
 
 		// Run validation
@@ -384,7 +430,8 @@ class FieldsService extends BaseApplicationComponent
 	 * Saves a field.
 	 *
 	 * @param FieldModel $field
-	 * @param bool $validate
+	 * @param bool       $validate
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -515,6 +562,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Deletes a field by its ID.
 	 *
 	 * @param int $fieldId
+	 *
 	 * @return bool
 	 */
 	public function deleteFieldById($fieldId)
@@ -534,6 +582,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Deletes a field.
 	 *
 	 * @param FieldModel $field
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -588,12 +637,13 @@ class FieldsService extends BaseApplicationComponent
 	}
 
 	// Layouts
-	// =======
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns a field layout by its ID.
 	 *
 	 * @param int $layoutId
+	 *
 	 * @return FieldLayoutModel|null
 	 */
 	public function getLayoutById($layoutId)
@@ -623,6 +673,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a field layout by its type.
 	 *
 	 * @param string $type
+	 *
 	 * @return FieldLayoutModel
 	 */
 	public function getLayoutByType($type)
@@ -659,6 +710,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a layout's tabs by its ID.
 	 *
 	 * @param int $layoutId
+	 *
 	 * @return array
 	 */
 	public function getLayoutTabsById($layoutId)
@@ -674,6 +726,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Returns a layout's tabs by its ID.
 	 *
 	 * @param int $layoutId
+	 *
 	 * @return array
 	 */
 	public function getLayoutFieldsById($layoutId)
@@ -688,26 +741,25 @@ class FieldsService extends BaseApplicationComponent
 	/**
 	 * Assembles a field layout from post data.
 	 *
-	 * @param bool $createTabs Whether to create tabs, or just assign the fields directly to the layout.
 	 * @return FieldLayoutModel
 	 */
-	public function assembleLayoutFromPost($createTabs = true)
+	public function assembleLayoutFromPost()
 	{
 		$postedFieldLayout = craft()->request->getPost('fieldLayout', array());
 		$requiredFields = craft()->request->getPost('requiredFields', array());
 
-		return $this->assembleLayout($postedFieldLayout, $requiredFields, $createTabs);
+		return $this->assembleLayout($postedFieldLayout, $requiredFields);
 	}
 
 	/**
 	 * Assembles a field layout.
 	 *
-	 * @param array $postedFieldLayout
+	 * @param array      $postedFieldLayout
 	 * @param array|null $requiredFields
-	 * @param bool $createTabs
+	 *
 	 * @return FieldLayoutModel
 	 */
-	public function assembleLayout($postedFieldLayout, $requiredFields, $createTabs = true)
+	public function assembleLayout($postedFieldLayout, $requiredFields)
 	{
 		$tabs = array();
 		$fields = array();
@@ -717,6 +769,7 @@ class FieldsService extends BaseApplicationComponent
 		foreach ($postedFieldLayout as $tabName => $fieldIds)
 		{
 			$tabFields = array();
+			$tabSortOrder++;
 
 			foreach ($fieldIds as $fieldSortOrder => $fieldId)
 			{
@@ -725,22 +778,16 @@ class FieldsService extends BaseApplicationComponent
 				$field->required  = in_array($fieldId, $requiredFields);
 				$field->sortOrder = ($fieldSortOrder+1);
 
+				$fields[] = $field;
 				$tabFields[] = $field;
 			}
 
-			$fields = array_merge($fields, $tabFields);
+			$tab = new FieldLayoutTabModel();
+			$tab->name      = urldecode($tabName);
+			$tab->sortOrder = $tabSortOrder;
+			$tab->setFields($tabFields);
 
-			if ($createTabs)
-			{
-				$tabSortOrder++;
-
-				$tab = new FieldLayoutTabModel();
-				$tab->name      = urldecode($tabName);
-				$tab->sortOrder = $tabSortOrder;
-				$tab->setFields($tabFields);
-
-				$tabs[] = $tab;
-			}
+			$tabs[] = $tab;
 		}
 
 		$layout = new FieldLayoutModel();
@@ -754,10 +801,10 @@ class FieldsService extends BaseApplicationComponent
 	 * Saves a field layout.
 	 *
 	 * @param FieldLayoutModel $layout
-	 * @param bool $saveTabs Whether to save tab records.
+	 *
 	 * @return bool
 	 */
-	public function saveLayout(FieldLayoutModel $layout, $saveTabs = true)
+	public function saveLayout(FieldLayoutModel $layout)
 	{
 		// First save the layout
 		$layoutRecord = new FieldLayoutRecord();
@@ -765,36 +812,20 @@ class FieldsService extends BaseApplicationComponent
 		$layoutRecord->save(false);
 		$layout->id = $layoutRecord->id;
 
-		if ($saveTabs)
+		foreach ($layout->getTabs() as $tab)
 		{
-			foreach ($layout->getTabs() as $tab)
-			{
-				$tabRecord = new FieldLayoutTabRecord();
-				$tabRecord->layoutId  = $layout->id;
-				$tabRecord->name      = $tab->name;
-				$tabRecord->sortOrder = $tab->sortOrder;
-				$tabRecord->save(false);
-				$tab->id = $tabRecord->id;
+			$tabRecord = new FieldLayoutTabRecord();
+			$tabRecord->layoutId  = $layout->id;
+			$tabRecord->name      = $tab->name;
+			$tabRecord->sortOrder = $tab->sortOrder;
+			$tabRecord->save(false);
+			$tab->id = $tabRecord->id;
 
-				foreach ($tab->getFields() as $field)
-				{
-					$fieldRecord = new FieldLayoutFieldRecord();
-					$fieldRecord->layoutId  = $layout->id;
-					$fieldRecord->tabId     = $tab->id;
-					$fieldRecord->fieldId   = $field->fieldId;
-					$fieldRecord->required  = $field->required;
-					$fieldRecord->sortOrder = $field->sortOrder;
-					$fieldRecord->save(false);
-					$field->id = $fieldRecord->id;
-				}
-			}
-		}
-		else
-		{
-			foreach ($layout->getFields() as $field)
+			foreach ($tab->getFields() as $field)
 			{
 				$fieldRecord = new FieldLayoutFieldRecord();
 				$fieldRecord->layoutId  = $layout->id;
+				$fieldRecord->tabId     = $tab->id;
 				$fieldRecord->fieldId   = $field->fieldId;
 				$fieldRecord->required  = $field->required;
 				$fieldRecord->sortOrder = $field->sortOrder;
@@ -803,6 +834,11 @@ class FieldsService extends BaseApplicationComponent
 			}
 		}
 
+		// Fire an 'onSaveFieldLayout' event
+		$this->onSaveFieldLayout(new Event($this, array(
+			'layout' => $layout,
+		)));
+
 		return true;
 	}
 
@@ -810,6 +846,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Deletes a field layout(s) by its ID.
 	 *
 	 * @param int|array $layoutId
+	 *
 	 * @return bool
 	 */
 	public function deleteLayoutById($layoutId)
@@ -835,6 +872,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Deletes field layouts of a given type.
 	 *
 	 * @param string $type
+	 *
 	 * @return bool
 	 */
 	public function deleteLayoutsByType($type)
@@ -844,7 +882,7 @@ class FieldsService extends BaseApplicationComponent
 	}
 
 	// Fieldtypes
-	// ==========
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all installed fieldtypes.
@@ -860,6 +898,7 @@ class FieldsService extends BaseApplicationComponent
 	 * Gets a fieldtype.
 	 *
 	 * @param string $class
+	 *
 	 * @return BaseFieldType|null
 	 */
 	public function getFieldType($class)
@@ -870,8 +909,9 @@ class FieldsService extends BaseApplicationComponent
 	/**
 	 * Populates a fieldtype by a field model.
 	 *
-	 * @param FieldModel $field
+	 * @param FieldModel            $field
 	 * @param BaseElementModel|null $element
+	 *
 	 * @return BaseFieldType|null
 	 */
 	public function populateFieldType(FieldModel $field, $element = null)
@@ -885,8 +925,20 @@ class FieldsService extends BaseApplicationComponent
 		}
 	}
 
-	// Private methods
-	// ===============
+	/**
+	 * Fires an 'onSaveFieldLayout' event.
+	 *
+	 * @param Event $event
+	 *
+	 * @return null
+	 */
+	public function onSaveFieldLayout(Event $event)
+	{
+		$this->raiseEvent('onSaveFieldLayout', $event);
+	}
+
+	// Private Methods
+	// =========================================================================
 
 	/**
 	 * Returns a DbCommand object prepped for retrieving groups.
@@ -955,8 +1007,8 @@ class FieldsService extends BaseApplicationComponent
 	/**
 	 * Populates a field from its DB result.
 	 *
-	 * @access private
 	 * @param array $result
+	 *
 	 * @return FieldModel
 	 */
 	private function _populateField($result)
@@ -972,8 +1024,8 @@ class FieldsService extends BaseApplicationComponent
 	/**
 	 * Gets a field group record or creates a new one.
 	 *
-	 * @access private
 	 * @param FieldGroupModel $group
+	 *
 	 * @throws Exception
 	 * @return FieldGroupRecord
 	 */
@@ -985,7 +1037,7 @@ class FieldsService extends BaseApplicationComponent
 
 			if (!$groupRecord)
 			{
-				throw new Exception(Craft::t('No field group exists with the ID “{id}”', array('id' => $group->id)));
+				throw new Exception(Craft::t('No field group exists with the ID “{id}”.', array('id' => $group->id)));
 			}
 		}
 		else
@@ -999,8 +1051,9 @@ class FieldsService extends BaseApplicationComponent
 	/**
 	 * Returns a field record for a given model.
 	 *
-	 * @access private
 	 * @param FieldModel $field
+	 *
+	 * @throws Exception
 	 * @return FieldRecord
 	 */
 	private function _getFieldRecord(FieldModel $field)
@@ -1015,7 +1068,7 @@ class FieldsService extends BaseApplicationComponent
 
 				if (!$this->_fieldRecordsById[$fieldId])
 				{
-					throw new Exception(Craft::t('No field exists with the ID “{id}”', array('id' => $fieldId)));
+					throw new Exception(Craft::t('No field exists with the ID “{id}”.', array('id' => $fieldId)));
 				}
 			}
 

@@ -2,22 +2,22 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Clear Caches tool.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Clear Caches tool
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.tools
+ * @since     1.0
  */
 class ClearCachesTool extends BaseTool
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
-	 * Returns the tool name.
+	 * @inheritDoc IComponentType::getName()
 	 *
 	 * @return string
 	 */
@@ -27,7 +27,7 @@ class ClearCachesTool extends BaseTool
 	}
 
 	/**
-	 * Returns the tool's icon value.
+	 * @inheritDoc ITool::getIconValue()
 	 *
 	 * @return string
 	 */
@@ -37,7 +37,7 @@ class ClearCachesTool extends BaseTool
 	}
 
 	/**
-	 * Returns the tool's options HTML.
+	 * @inheritDoc ITool::getOptionsHtml()
 	 *
 	 * @return string
 	 */
@@ -55,7 +55,7 @@ class ClearCachesTool extends BaseTool
 	}
 
 	/**
-	 * Returns the tool's button label.
+	 * @inheritDoc ITool::getButtonLabel()
 	 *
 	 * @return string
 	 */
@@ -65,10 +65,11 @@ class ClearCachesTool extends BaseTool
 	}
 
 	/**
-	 * Performs the tool's action.
+	 * @inheritDoc ITool::performAction()
 	 *
 	 * @param array $params
-	 * @return void
+	 *
+	 * @return null
 	 */
 	public function performAction($params = array())
 	{
@@ -126,17 +127,22 @@ class ClearCachesTool extends BaseTool
 		{
 			craft()->db->createCommand()->truncateTable('assettransformindex');
 		}
+
 		if ($params['caches'] == '*' || in_array('assetIndexingData', $params['caches']))
 		{
 			craft()->db->createCommand()->truncateTable('assetindexdata');
 		}
 	}
 
+	// Private Methods
+	// =========================================================================
+
 	/**
-	 * Returns the cache folders we allow to be cleared as well as any plugin cache paths that have used the 'registerCachePaths' hook.
+	 * Returns the cache folders we allow to be cleared as well as any plugin cache paths that have used the
+	 * 'registerCachePaths' hook.
 	 *
-	 * @access private
-	 * @param  bool    $obfuscate If true, will MD5 the path so it will be obfuscated in the template.
+	 * @param bool $obfuscate If true, will MD5 the path so it will be obfuscated in the template.
+	 *
 	 * @return array
 	 */
 	private function _getFolders($obfuscate = true)
@@ -146,7 +152,7 @@ class ClearCachesTool extends BaseTool
 		$folders = array(
 			$obfuscate ? md5('dataCache') : 'dataCache'                                             => Craft::t('Data caches'),
 			$obfuscate ? md5($runtimePath.'cache') : $runtimePath.'cache'                           => Craft::t('RSS caches'),
-			$obfuscate ? md5($runtimePath.'assets') : $runtimePath.'assets'                         => Craft::t('Asset thumbs'),
+			$obfuscate ? md5($runtimePath.'assets') : $runtimePath.'assets'                         => Craft::t('Asset caches'),
 			$obfuscate ? md5($runtimePath.'compiled_templates') : $runtimePath.'compiled_templates' => Craft::t('Compiled templates'),
 			$obfuscate ? md5($runtimePath.'temp') : $runtimePath.'temp'                             => Craft::t('Temp files'),
 		);

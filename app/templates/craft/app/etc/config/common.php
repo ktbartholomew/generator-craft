@@ -1,15 +1,5 @@
 <?php
 
-/**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
 // Initially set it here.  WebApp->init() will check devMode and override appropriately.
 error_reporting(E_ALL & ~E_STRICT);
 ini_set('display_errors', 1);
@@ -41,8 +31,11 @@ $configArray = array(
 		'app.controllers.AssetTransformsController',
 		'app.controllers.AssetsController',
 		'app.controllers.BaseController',
+		'app.controllers.BaseElementsController',
+		'app.controllers.BaseEntriesController',
 		'app.controllers.CategoriesController',
 		'app.controllers.DashboardController',
+		'app.controllers.ElementIndexController',
 		'app.controllers.ElementsController',
 		'app.controllers.EmailMessagesController',
 		'app.controllers.EntriesController',
@@ -65,6 +58,20 @@ $configArray = array(
 		'app.controllers.UserSettingsController',
 		'app.controllers.UsersController',
 		'app.controllers.UtilsController',
+		'app.elementactions.BaseElementAction',
+		'app.elementactions.CopyReferenceTagElementAction',
+		'app.elementactions.DeleteAssetsElementAction',
+		'app.elementactions.DeleteElementAction',
+		'app.elementactions.DeleteUsersElementAction',
+		'app.elementactions.EditElementAction',
+		'app.elementactions.IElementAction',
+		'app.elementactions.NewChildElementAction',
+		'app.elementactions.RenameFileElementAction',
+		'app.elementactions.ReplaceFileElementAction',
+		'app.elementactions.SetStatusElementAction',
+		'app.elementactions.SuspendUsersElementAction',
+		'app.elementactions.UnsuspendUsersElementAction',
+		'app.elementactions.ViewElementAction',
 		'app.elementtypes.AssetElementType',
 		'app.elementtypes.BaseElementType',
 		'app.elementtypes.CategoryElementType',
@@ -74,6 +81,7 @@ $configArray = array(
 		'app.elementtypes.MatrixBlockElementType',
 		'app.elementtypes.TagElementType',
 		'app.elementtypes.UserElementType',
+		'app.enums.AssetConflictResolution',
 		'app.enums.AttributeType',
 		'app.enums.BaseEnum',
 		'app.enums.CacheMethod',
@@ -90,7 +98,6 @@ $configArray = array(
 		'app.enums.PatchManifestFileAction',
 		'app.enums.PeriodType',
 		'app.enums.PluginVersionUpdateStatus',
-		'app.enums.PtAccountCredentialStatus',
 		'app.enums.RequirementResult',
 		'app.enums.SectionType',
 		'app.enums.TaskStatus',
@@ -144,11 +151,13 @@ $configArray = array(
 		'app.etc.io.Zip',
 		'app.etc.io.ZipArchive',
 		'app.etc.logging.FileLogRoute',
+		'app.etc.logging.LogFilter',
 		'app.etc.logging.LogRouter',
 		'app.etc.logging.Logger',
 		'app.etc.logging.ProfileLogRoute',
 		'app.etc.logging.WebLogRoute',
 		'app.etc.plugins.BasePlugin',
+		'app.etc.plugins.IPlugin',
 		'app.etc.requirements.Requirements',
 		'app.etc.requirements.RequirementsChecker',
 		'app.etc.search.SearchQuery',
@@ -179,6 +188,8 @@ $configArray = array(
 		'app.etc.templating.twigextensions.Paginate_TokenParser',
 		'app.etc.templating.twigextensions.Redirect_Node',
 		'app.etc.templating.twigextensions.Redirect_TokenParser',
+		'app.etc.templating.twigextensions.RequireAdmin_Node',
+		'app.etc.templating.twigextensions.RequireAdmin_TokenParser',
 		'app.etc.templating.twigextensions.RequireEdition_Node',
 		'app.etc.templating.twigextensions.RequireEdition_TokenParser',
 		'app.etc.templating.twigextensions.RequireLogin_Node',
@@ -190,6 +201,8 @@ $configArray = array(
 		'app.etc.templating.twigextensions.TemplateLoader',
 		'app.etc.updates.Updater',
 		'app.etc.users.UserIdentity',
+		'app.etc.web.CookieCollection',
+		'app.etc.web.HttpCookie',
 		'app.etc.web.UploadedFile',
 		'app.etc.web.UrlManager',
 		'app.extensions.NestedSetBehavior',
@@ -211,6 +224,7 @@ $configArray = array(
 		'app.fieldtypes.NumberFieldType',
 		'app.fieldtypes.OptionData',
 		'app.fieldtypes.PlainTextFieldType',
+		'app.fieldtypes.PositionSelectFieldType',
 		'app.fieldtypes.RadioButtonsFieldType',
 		'app.fieldtypes.RichTextData',
 		'app.fieldtypes.RichTextFieldType',
@@ -296,6 +310,7 @@ $configArray = array(
 		'app.models.TaskModel',
 		'app.models.UpdateModel',
 		'app.models.UpgradePurchaseModel',
+		'app.models.UrlModel',
 		'app.models.UserGroupModel',
 		'app.models.UserModel',
 		'app.models.UsernameModel',
@@ -337,6 +352,7 @@ $configArray = array(
 		'app.records.TagGroupRecord',
 		'app.records.TagRecord',
 		'app.records.TaskRecord',
+		'app.records.TokenRecord',
 		'app.records.UserGroupRecord',
 		'app.records.UserGroup_UserRecord',
 		'app.records.UserPermissionRecord',
@@ -385,6 +401,7 @@ $configArray = array(
 		'app.services.TasksService',
 		'app.services.TemplateCacheService',
 		'app.services.TemplatesService',
+		'app.services.TokensService',
 		'app.services.UpdatesService',
 		'app.services.UserGroupsService',
 		'app.services.UserPermissionsService',
@@ -393,7 +410,9 @@ $configArray = array(
 		'app.tasks.BaseTask',
 		'app.tasks.DeleteStaleTemplateCachesTask',
 		'app.tasks.FindAndReplaceTask',
+		'app.tasks.GeneratePendingTransformsTask',
 		'app.tasks.ITask',
+		'app.tasks.LocalizeRelationsTask',
 		'app.tasks.ResaveAllElementsTask',
 		'app.tasks.ResaveElementsTask',
 		'app.tests.BaseTest',
@@ -404,6 +423,7 @@ $configArray = array(
 		'app.tests.unit.EntriesServiceTest',
 		'app.tests.unit.EntryModelTest',
 		'app.tests.unit.HttpRequestsServiceTest',
+		'app.tests.unit.ModelTest',
 		'app.tests.unit.PluginsTest',
 		'app.tests.unit.RecentEntriesWidgetTest',
 		'app.tests.unit.ResourceProcessorTest',
@@ -470,7 +490,6 @@ $configArray = array(
 	'components' => array(
 
 		'db' => array(
-			'driverMap'         => array('mysql' => 'Craft\MysqlSchema'),
 			'class'             => 'Craft\DbConnection',
 		),
 
@@ -492,20 +511,22 @@ $configArray = array(
 	)
 );
 
-// -------------------------------------------
-//  CP routes
-// -------------------------------------------
+// CP routes
+// ----------------------------------------------------------------------------
 
-$cpRoutes['categories/(?P<groupHandle>{handle})'] = 'categories';
+$cpRoutes['categories']                                                           = array('action' => 'categories/categoryIndex');
+$cpRoutes['categories/(?P<groupHandle>{handle})']                                 = array('action' => 'categories/categoryIndex');
+$cpRoutes['categories/(?P<groupHandle>{handle})/new']                             = array('action' => 'categories/editCategory');
+$cpRoutes['categories/(?P<groupHandle>{handle})/(?P<categoryId>\d+)(?:-{slug})?'] = array('action' => 'categories/editCategory');
 
-$cpRoutes['dashboard/settings/new']               = 'dashboard/settings/_widgetsettings';
-$cpRoutes['dashboard/settings/(?P<widgetId>\d+)'] = 'dashboard/settings/_widgetsettings';
+$cpRoutes['dashboard/settings/new']                                               = 'dashboard/settings/_widgetsettings';
+$cpRoutes['dashboard/settings/(?P<widgetId>\d+)']                                 = 'dashboard/settings/_widgetsettings';
 
-$cpRoutes['entries/(?P<sectionHandle>{handle})']                  = 'entries';
-$cpRoutes['entries/(?P<sectionHandle>{handle})/new']              = array('action' => 'entries/editEntry');
-$cpRoutes['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)'] = array('action' => 'entries/editEntry');
+$cpRoutes['entries/(?P<sectionHandle>{handle})']                                  = 'entries';
+$cpRoutes['entries/(?P<sectionHandle>{handle})/new']                              = array('action' => 'entries/editEntry');
+$cpRoutes['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)(?:-{slug})?']     = array('action' => 'entries/editEntry');
 
-$cpRoutes['globals/(?P<globalSetHandle>{handle})']                = array('action' => 'globals/editContent');
+$cpRoutes['globals/(?P<globalSetHandle>{handle})']                                = array('action' => 'globals/editContent');
 
 $cpRoutes['updates/go/(?P<handle>[^/]*)'] = 'updates/_go';
 
@@ -561,30 +582,32 @@ $cpRoutes['settings/routes'] = array(
 $cpRoutes['myaccount'] = array('action' => 'users/editUser', 'params' => array('account' => 'current'));
 
 // Client routes
-$cpRoutes['editionRoutes'][1]['clientaccount']                                                                    = array('action' => 'users/editUser', 'params' => array('account' => 'client'));
-$cpRoutes['editionRoutes'][1]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)/drafts/(?P<draftId>\d+)']     = array('action' => 'entries/editEntry');
-$cpRoutes['editionRoutes'][1]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)/versions/(?P<versionId>\d+)'] = array('action' => 'entries/editEntry');
+$cpRoutes['editionRoutes'][1]['clientaccount']                                                                                = array('action' => 'users/editUser', 'params' => array('account' => 'client'));
+$cpRoutes['editionRoutes'][1]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)(?:-{slug}?)?/drafts/(?P<draftId>\d+)']    = array('action' => 'entries/editEntry');
+$cpRoutes['editionRoutes'][1]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)(?:-{slug})?/versions/(?P<versionId>\d+)'] = array('action' => 'entries/editEntry');
 
 // Pro routes
-$cpRoutes['editionRoutes'][2]['clientaccount']                                                                    = false;
-$cpRoutes['editionRoutes'][2]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)/(?P<localeId>\w+)']           = array('action' => 'entries/editEntry');
-$cpRoutes['editionRoutes'][2]['entries/(?P<sectionHandle>{handle})/new/(?P<localeId>\w+)']                        = array('action' => 'entries/editEntry');
-$cpRoutes['editionRoutes'][2]['globals/(?P<localeId>\w+)/(?P<globalSetHandle>{handle})']                          = array('action' => 'globals/editContent');
-$cpRoutes['editionRoutes'][2]['users/new']                                                                        = array('action' => 'users/editUser');
-$cpRoutes['editionRoutes'][2]['users/(?P<userId>\d+)']                                                            = array('action' => 'users/editUser');
-$cpRoutes['editionRoutes'][2]['settings/users']                                                                   = 'settings/users/groups';
-$cpRoutes['editionRoutes'][2]['settings/users/groups/new']                                                        = 'settings/users/groups/_settings';
-$cpRoutes['editionRoutes'][2]['settings/users/groups/(?P<groupId>\d+)']                                           = 'settings/users/groups/_settings';
+$cpRoutes['editionRoutes'][2]['clientaccount']                                                                                = false;
+$cpRoutes['editionRoutes'][2]['categories/(?P<groupHandle>{handle})/(?P<categoryId>\d+)(?:-{slug})?/(?P<localeId>\w+)']       = array('action' => 'categories/editCategory');
+$cpRoutes['editionRoutes'][2]['categories/(?P<groupHandle>{handle})/new/(?P<localeId>\w+)']                                   = array('action' => 'categories/editCategory');
+$cpRoutes['editionRoutes'][2]['entries/(?P<sectionHandle>{handle})/(?P<entryId>\d+)(?:-{slug})?/(?P<localeId>\w+)']           = array('action' => 'entries/editEntry');
+$cpRoutes['editionRoutes'][2]['entries/(?P<sectionHandle>{handle})/new/(?P<localeId>\w+)']                                    = array('action' => 'entries/editEntry');
+$cpRoutes['editionRoutes'][2]['globals/(?P<localeId>\w+)/(?P<globalSetHandle>{handle})']                                      = array('action' => 'globals/editContent');
+$cpRoutes['editionRoutes'][2]['users/new']                                                                                    = array('action' => 'users/editUser');
+$cpRoutes['editionRoutes'][2]['users/(?P<userId>\d+)']                                                                        = array('action' => 'users/editUser');
+$cpRoutes['editionRoutes'][2]['settings/users']                                                                               = 'settings/users/groups/_index';
+$cpRoutes['editionRoutes'][2]['settings/users/groups/new']                                                                    = 'settings/users/groups/_edit';
+$cpRoutes['editionRoutes'][2]['settings/users/groups/(?P<groupId>\d+)']                                                       = 'settings/users/groups/_edit';
 
-// -------------------------------------------
 //  Component config
-// -------------------------------------------
+// ----------------------------------------------------------------------------
 
 $components['users']['class']                = 'Craft\UsersService';
 $components['assets']['class']               = 'Craft\AssetsService';
 $components['assetTransforms']['class']      = 'Craft\AssetTransformsService';
 $components['assetIndexing']['class']        = 'Craft\AssetIndexingService';
 $components['assetSources']['class']         = 'Craft\AssetSourcesService';
+$components['cache']['class']                = 'Craft\CacheService';
 $components['categories']['class']           = 'Craft\CategoriesService';
 $components['content']['class']              = 'Craft\ContentService';
 $components['dashboard']['class']            = 'Craft\DashboardService';
@@ -595,7 +618,6 @@ $components['entries']['class']              = 'Craft\EntriesService';
 $components['et']['class']                   = 'Craft\EtService';
 $components['feeds']['class']                = 'Craft\FeedsService';
 $components['fields']['class']               = 'Craft\FieldsService';
-$components['fieldTypes']['class']           = 'Craft\FieldTypesService';
 $components['globals']['class']              = 'Craft\GlobalsService';
 $components['install']['class']              = 'Craft\InstallService';
 $components['images']['class']               = 'Craft\ImagesService';
@@ -603,7 +625,6 @@ $components['matrix']['class']               = 'Craft\MatrixService';
 $components['migrations']['class']           = 'Craft\MigrationsService';
 $components['path']['class']                 = 'Craft\PathService';
 $components['relations']['class']            = 'Craft\RelationsService';
-$components['cache']['class']                = 'Craft\CacheService';
 $components['resources'] = array(
 	'class'     => 'Craft\ResourcesService',
 	'dateParam' => 'd',
@@ -648,21 +669,23 @@ $components['tags']['class']                 = 'Craft\TagsService';
 $components['tasks']['class']                = 'Craft\TasksService';
 $components['templateCache']['class']        = 'Craft\TemplateCacheService';
 $components['templates']['class']            = 'Craft\TemplatesService';
+$components['tokens']['class']               = 'Craft\TokensService';
 $components['updates']['class']              = 'Craft\UpdatesService';
 $components['components'] = array(
 	'class' => 'Craft\ComponentsService',
 	'types' => array(
-		'assetSource' => array('subfolder' => 'assetsourcetypes', 'suffix' => 'AssetSourceType', 'instanceof' => 'BaseAssetSourceType', 'enableForPlugins' => false),
-		'element'     => array('subfolder' => 'elementtypes',     'suffix' => 'ElementType',     'instanceof' => 'IElementType',        'enableForPlugins' => true),
-		'field'       => array('subfolder' => 'fieldtypes',       'suffix' => 'FieldType',       'instanceof' => 'IFieldType',          'enableForPlugins' => true),
-		'tool'        => array('subfolder' => 'tools',            'suffix' => 'Tool',            'instanceof' => 'ITool',               'enableForPlugins' => false),
-		'task'        => array('subfolder' => 'tasks',            'suffix' => 'Task',            'instanceof' => 'ITask',               'enableForPlugins' => true),
-		'widget'      => array('subfolder' => 'widgets',          'suffix' => 'Widget',          'instanceof' => 'IWidget',             'enableForPlugins' => true),
+		'assetSource'   => array('subfolder' => 'assetsourcetypes', 'suffix' => 'AssetSourceType', 'instanceof' => 'BaseAssetSourceType', 'enableForPlugins' => false),
+		'element'       => array('subfolder' => 'elementtypes',     'suffix' => 'ElementType',     'instanceof' => 'IElementType',        'enableForPlugins' => true),
+		'elementAction' => array('subfolder' => 'elementactions',   'suffix' => 'ElementAction',   'instanceof' => 'IElementAction',      'enableForPlugins' => true),
+		'field'         => array('subfolder' => 'fieldtypes',       'suffix' => 'FieldType',       'instanceof' => 'IFieldType',          'enableForPlugins' => true),
+		'tool'          => array('subfolder' => 'tools',            'suffix' => 'Tool',            'instanceof' => 'ITool',               'enableForPlugins' => false),
+		'task'          => array('subfolder' => 'tasks',            'suffix' => 'Task',            'instanceof' => 'ITask',               'enableForPlugins' => true),
+		'widget'        => array('subfolder' => 'widgets',          'suffix' => 'Widget',          'instanceof' => 'IWidget',             'enableForPlugins' => true),
 	)
 );
 $components['plugins'] = array(
 	'class' => 'Craft\PluginsService',
-	'autoloadClasses' => array('Controller','Helper','Model','Record','Service','Variable','Validator'),
+	'autoloadClasses' => array('Controller','Enum','Helper','Model','Record','Service','Variable','Validator'),
 );
 
 // Craft Client components
@@ -673,11 +696,10 @@ $components['editionComponents'][1]['entryRevisions']['class']  = 'Craft\EntryRe
 $components['editionComponents'][2]['userGroups']['class']      = 'Craft\UserGroupsService';
 $components['editionComponents'][2]['userPermissions']['class'] = 'Craft\UserPermissionsService';
 
-$components['file']['class'] = 'Craft\File';
 $components['messages']['class'] = 'Craft\PhpMessageSource';
+$components['coreMessages']['class'] = 'Craft\PhpMessageSource';
 $components['request']['class'] = 'Craft\HttpRequestService';
 $components['request']['enableCookieValidation'] = true;
-$components['viewRenderer']['class'] = 'Craft\TemplateProcessor';
 $components['statePersister']['class'] = 'Craft\StatePersister';
 
 $components['urlManager']['class'] = 'Craft\UrlManager';

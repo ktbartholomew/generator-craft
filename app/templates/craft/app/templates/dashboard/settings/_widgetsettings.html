@@ -14,6 +14,10 @@
 
 
 {% if widget is defined %}
+	{% if widget.type is defined and widget.type == 'GetHelp' and not currentUser.admin %}
+		{% exit 404 %}
+	{% endif %}
+
 	{% set widgetType = craft.dashboard.populateWidgetType(widget) %}
 	{% set isWidgetTypeMissing = not widgetType %}
 {% else %}
@@ -29,14 +33,14 @@
 
 
 {% if isNewWidget %}
-	{% set title = "Add a new widget."|t %}
+	{% set title = "Add a new widget"|t %}
 {% else %}
 	{% set title = widgetType.title %}
 {% endif %}
 
-
 {% set content %}
-	<form method="post" accept-charset="UTF-8" data-saveshortcut="1">
+	<form method="post" accept-charset="UTF-8" data-saveshortcut>
+		{{ getCsrfInput() }}
 		<input type="hidden" name="action" value="dashboard/saveUserWidget">
 		<input type="hidden" name="redirect" value="dashboard/settings">
 		{% if not isNewWidget %}<input type="hidden" name="widgetId" value="{{ widget.id }}">{% endif %}
@@ -44,7 +48,8 @@
 		{% set widgetTypes = craft.dashboard.getAllWidgetTypes() %}
 
 		{% if not widgetType.isSelectable() %}
-			{% set widgetTypes = [widgetType]|merge(widgetTypes) %}
+			{% set newWidgetElement = { (widgetType.getClassHandle()) : widgetType } %}
+			{% set widgetTypes = newWidgetElement|merge(widgetTypes) %}
 		{% endif %}
 
 		{{ forms.selectField({

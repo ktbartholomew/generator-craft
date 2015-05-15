@@ -2,36 +2,67 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Model base class.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Model base class
- *
- * @abstract
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.models
+ * @since     1.0
  */
 abstract class BaseModel extends \CModel
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var string
+	 */
+	protected $classSuffix = 'Model';
+
+	/**
+	 * @var bool Whether this model should be strict about only allowing values to be set on defined attributes
+	 */
+	protected $strictAttributes = true;
+
+	/**
+	 * @var
+	 */
 	private $_classHandle;
+
+	/**
+	 * @var
+	 */
 	private $_attributeConfigs;
-	private $_attributeNames;
+
+	/**
+	 * @var
+	 */
 	private $_attributes;
 
-	protected $classSuffix = 'Model';
+	/**
+	 * @var
+	 */
+	private $_extraAttributeNames;
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Constructor
 	 *
 	 * @param mixed $attributes
+	 *
+	 * @return BaseModel
 	 */
-	function __construct($attributes = null)
+	public function __construct($attributes = null)
 	{
+		if (!$this->strictAttributes)
+		{
+			$this->_extraAttributeNames = array();
+		}
+
 		ModelHelper::populateAttributeDefaults($this);
 		$this->setAttributes($attributes);
 
@@ -42,9 +73,10 @@ abstract class BaseModel extends \CModel
 	 * PHP getter magic method.
 	 *
 	 * @param string $name
+	 *
 	 * @return mixed
 	 */
-	function __get($name)
+	public function __get($name)
 	{
 		if (in_array($name, $this->attributeNames()))
 		{
@@ -61,9 +93,10 @@ abstract class BaseModel extends \CModel
 	 *
 	 * @param string $name
 	 * @param mixed  $value
+	 *
 	 * @return mixed
 	 */
-	function __set($name, $value)
+	public function __set($name, $value)
 	{
 		if ($this->setAttribute($name, $value) === false)
 		{
@@ -75,29 +108,36 @@ abstract class BaseModel extends \CModel
 	 * Magic __call() method, used for chain-setting attribute values.
 	 *
 	 * @param string $name
-	 * @param array $arguments
+	 * @param array  $arguments
+	 *
 	 * @return BaseModel
 	 */
-	function __call($name, $arguments)
+	public function __call($name, $arguments)
 	{
-		if (in_array($name, $this->attributeNames()))
-		{
-			$copy = $this->copy();
-
-			if (count($arguments) == 1)
-			{
-				$copy->setAttribute($name, $arguments[0]);
-			}
-			else
-			{
-				$copy->setAttribute($name, $arguments);
-			}
-
-			return $copy;
-		}
-		else
+		try
 		{
 			return parent::__call($name, $arguments);
+		}
+		catch (\CException $e)
+		{
+			// Is this one of our attributes?
+			if (!$this->strictAttributes || in_array($name, $this->attributeNames()))
+			{
+				$copy = $this->copy();
+
+				if (count($arguments) == 1)
+				{
+					$copy->setAttribute($name, $arguments[0]);
+				}
+				else
+				{
+					$copy->setAttribute($name, $arguments);
+				}
+
+				return $copy;
+			}
+
+			throw $e;
 		}
 	}
 
@@ -105,9 +145,10 @@ abstract class BaseModel extends \CModel
 	 * Treats attributes defined by defineAttributes() as properties.
 	 *
 	 * @param string $name
+	 *
 	 * @return bool
 	 */
-	function __isset($name)
+	public function __isset($name)
 	{
 		if (parent::__isset($name) || in_array($name, $this->attributeNames()))
 		{
@@ -120,10 +161,56 @@ abstract class BaseModel extends \CModel
 	}
 
 	/**
+	 * Populates a new model instance with a given set of attributes.
+	 *
+	 * @param mixed $values
+	 *
+	 * @return BaseModel
+	 */
+	public static function populateModel($values)
+	{
+		$class = get_called_class();
+		return new $class($values);
+	}
+
+	/**
+	 * Mass-populates models based on an array of attribute arrays.
+	 *
+	 * @param array       $data
+	 * @param string|null $indexBy
+	 *
+	 * @return array
+	 */
+	public static function populateModels($data, $indexBy = null)
+	{
+		$models = array();
+
+		if (is_array($data))
+		{
+			foreach ($data as $values)
+			{
+				$model = static::populateModel($values);
+
+				if ($indexBy)
+				{
+					$models[$model->$indexBy] = $model;
+				}
+				else
+				{
+					$models[] = $model;
+				}
+			}
+		}
+
+		return $models;
+	}
+
+	/**
 	 * Treats attributes defined by defineAttributes() as array offsets.
 	 *
 	 * @param mixed $offset
-	 * @return boolean
+	 *
+	 * @return bool
 	 */
 	public function offsetExists($offset)
 	{
@@ -164,17 +251,6 @@ abstract class BaseModel extends \CModel
 	}
 
 	/**
-	 * Defines this model's attributes.
-	 *
-	 * @access protected
-	 * @return array
-	 */
-	protected function defineAttributes()
-	{
-		return array();
-	}
-
-	/**
 	 * Returns this model's normalized attribute configs.
 	 *
 	 * @return array
@@ -201,19 +277,32 @@ abstract class BaseModel extends \CModel
 	 */
 	public function attributeNames()
 	{
-		if (!isset($this->_attributeNames))
+		$attributeNames = array_keys($this->getAttributeConfigs());
+
+		if (!$this->strictAttributes)
 		{
-			$this->_attributeNames = array_keys($this->getAttributeConfigs());
+			$attributeNames = array_merge($attributeNames, $this->_extraAttributeNames);
 		}
 
-		return $this->_attributeNames;
+		return $attributeNames;
+	}
+
+	/**
+	 * Returns a list of the names of the extra attributes that have been saved on this model, if it's not strict.
+	 *
+	 * @return array
+	 */
+	public function getExtraAttributeNames()
+	{
+		return $this->_extraAttributeNames;
 	}
 
 	/**
 	 * Returns an array of attribute values.
 	 *
 	 * @param null $names
-	 * @param bool $flattenValues Will change a DateTime object to a timestamp, Mixed to array, etc. Useful for saving to DB or sending over a web service.
+	 * @param bool $flattenValues Will change a DateTime object to a timestamp, Mixed to array, etc. Useful for saving
+	 *                            to DB or sending over a web service.
 	 *
 	 * @return array
 	 */
@@ -233,10 +322,11 @@ abstract class BaseModel extends \CModel
 	}
 
 	/**
-	 * Gets an attribute's value.
+	 * Gets an attribute’s value.
 	 *
-	 * @param string $name
-	 * @param bool $flattenValue
+	 * @param string $name         The attribute’s name.
+	 * @param bool   $flattenValue
+	 *
 	 * @return mixed
 	 */
 	public function getAttribute($name, $flattenValue = false)
@@ -258,66 +348,76 @@ abstract class BaseModel extends \CModel
 	 * Sets an attribute's value.
 	 *
 	 * @param string $name
-	 * @param mixed $value
+	 * @param mixed  $value
+	 *
 	 * @return bool
 	 */
 	public function setAttribute($name, $value)
 	{
-		if (in_array($name, $this->attributeNames()))
+		if (!$this->strictAttributes || in_array($name, $this->attributeNames()))
 		{
-			$attributes = $this->getAttributeConfigs();
-			$config = $attributes[$name];
-
-			// Handle special case attribute types
-			switch ($config['type'])
+			// Is this a normal attribute?
+			if (array_key_exists($name, $this->_attributeConfigs))
 			{
-				case AttributeType::DateTime:
-				{
-					if ($value)
-					{
-						if (!($value instanceof \DateTime))
-						{
-							if (DateTimeHelper::isValidTimeStamp($value))
-							{
-								$value = new DateTime('@'.$value);
-							}
-							else
-							{
-								$value = DateTime::createFromString($value);
-							}
-						}
-					}
-					else
-					{
-						// No empty strings allowed!
-						$value = null;
-					}
+				$attributes = $this->getAttributeConfigs();
+				$config = $attributes[$name];
 
-					break;
-				}
-				case AttributeType::Mixed:
+				// Handle special case attribute types
+				switch ($config['type'])
 				{
-					if ($value && is_string($value) && mb_strpos('{[', $value[0]) !== false)
+					case AttributeType::DateTime:
 					{
-						// Presumably this is JSON.
-						$value = JsonHelper::decode($value);
-					}
-
-					if (is_array($value))
-					{
-						if ($config['model'])
+						if ($value)
 						{
-							$class = __NAMESPACE__.'\\'.$config['model'];
-							$value = $class::populateModel($value);
+							if (!($value instanceof \DateTime))
+							{
+								if (DateTimeHelper::isValidTimeStamp($value))
+								{
+									$value = new DateTime('@'.$value);
+								}
+								else
+								{
+									$value = DateTime::createFromString($value);
+								}
+							}
 						}
 						else
 						{
-							$value = ModelHelper::expandModelsInArray($value);
+							// No empty strings allowed!
+							$value = null;
 						}
-					}
 
-					break;
+						break;
+					}
+					case AttributeType::Mixed:
+					{
+						if ($value && is_string($value) && mb_strpos('{[', $value[0]) !== false)
+						{
+							// Presumably this is JSON.
+							$value = JsonHelper::decode($value);
+						}
+
+						if (is_array($value))
+						{
+							if ($config['model'])
+							{
+								$class = __NAMESPACE__.'\\'.$config['model'];
+								$value = $class::populateModel($value);
+							}
+							else
+							{
+								$value = ModelHelper::expandModelsInArray($value);
+							}
+						}
+
+						break;
+					}
 				}
+			}
+			// Is this the first time this extra attribute has been set?
+			else if (!array_key_exists($name, $this->_extraAttributeNames))
+			{
+				$this->_extraAttributeNames[] = $name;
 			}
 
 			$this->_attributes[$name] = $value;
@@ -333,18 +433,36 @@ abstract class BaseModel extends \CModel
 	 * Sets multiple attribute values at once.
 	 *
 	 * @param mixed $values
+	 *
+	 * @return null
 	 */
 	public function setAttributes($values)
 	{
-		if (is_array($values) || is_object($values))
+		// If this is a model, get the actual attributes on it
+		if ($values instanceof \CModel)
 		{
-			foreach ($this->attributeNames() as $name)
+			$model = $values;
+			$values = $model->getAttributes();
+
+			// Is this a record?
+			if ($model instanceof \CActiveRecord)
 			{
-				// Make sure they're actually setting this attribute
-				if (isset($values[$name]) || (is_array($values) && array_key_exists($name, $values)))
+				// Set any eager-loaded relations' values
+				foreach (array_keys($model->getMetaData()->relations) as $name)
 				{
-					$this->setAttribute($name, $values[$name]);
+					if ($model->hasRelated($name))
+					{
+						$this->setAttribute($name, $model->$name);
+					}
 				}
+			}
+		}
+
+		if (is_array($values) || $values instanceof \Traversable)
+		{
+			foreach ($values as $name => $value)
+			{
+				$this->setAttribute($name, $value);
 			}
 		}
 	}
@@ -370,10 +488,12 @@ abstract class BaseModel extends \CModel
 	}
 
 	/**
-	 * We override the parent method so we can log any attributes that failed validation.
+	 * Validates all of the attributes for the current Model. Any attributes that fail validation will additionally get
+	 * logged to the `craft/storage/runtime/logs` folder with a level of LogLevel::Warning.
 	 *
 	 * @param null $attributes
 	 * @param bool $clearErrors
+	 *
 	 * @return bool
 	 */
 	public function validate($attributes = null, $clearErrors = true)
@@ -422,47 +542,16 @@ abstract class BaseModel extends \CModel
 		return new $class($this->getAttributes());
 	}
 
-	/**
-	 * Populates a new model instance with a given set of attributes.
-	 *
-	 * @static
-	 * @param mixed $values
-	 * @return BaseModel
-	 */
-	public static function populateModel($values)
-	{
-		$class = get_called_class();
-		return new $class($values);
-	}
+	// Protected Methods
+	// =========================================================================
 
 	/**
-	 * Mass-populates models based on an array of attribute arrays.
+	 * Defines this model's attributes.
 	 *
-	 * @param array $data
-	 * @param string|null $indexBy
 	 * @return array
 	 */
-	public static function populateModels($data, $indexBy = null)
+	protected function defineAttributes()
 	{
-		$models = array();
-
-		if (is_array($data))
-		{
-			foreach ($data as $values)
-			{
-				$model = static::populateModel($values);
-
-				if ($indexBy)
-				{
-					$models[$model->$indexBy] = $model;
-				}
-				else
-				{
-					$models[] = $model;
-				}
-			}
-		}
-
-		return $models;
+		return array();
 	}
 }

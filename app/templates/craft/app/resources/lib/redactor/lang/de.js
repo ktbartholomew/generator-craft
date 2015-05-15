@@ -73,6 +73,8 @@ $.Redactor.opts.langs['de'] = {
 	underline: 'Unterstrichen',
 	alignment: 'Ausrichtung',
 	filename: 'Name (optional)',
-	edit: 'Bearbeiten'
+	edit: 'Bearbeiten',
+	center: 'Center',
+	upload_label: 'Drop file here or '
 };
 })( jQuery );

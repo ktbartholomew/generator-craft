@@ -2,24 +2,48 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * The AssetsController class is a controller that handles various actions related to asset tasks, such as uploading
+ * files and creating/deleting/renaming files and folders.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Handles asset tasks
+ * Note that all actions in the controller except {@link actionGenerateTransform} require an authenticated Craft session
+ * via {@link BaseController::allowAnonymous}.
+ *
+ * @author     Pixel & Tonic, Inc. <support@pixelandtonic.com>
+ * @copyright  Copyright (c) 2014, Pixel & Tonic, Inc.
+ * @license    http://buildwithcraft.com/license Craft License Agreement
+ * @see        http://buildwithcraft.com
+ * @package    craft.app.controllers
+ * @since      1.0
+ * @deprecated This class will have several breaking changes in Craft 3.0.
  */
 class AssetsController extends BaseController
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * If set to false, you are required to be logged in to execute any of the given controller's actions.
+	 *
+	 * If set to true, anonymous access is allowed for all of the given controller's actions.
+	 *
+	 * If the value is an array of action names, then you must be logged in for any action method except for the ones in
+	 * the array list.
+	 *
+	 * If you have a controller that where the majority of action methods will be anonymous, but you only want require
+	 * login on a few, it's best to use {@link UserSessionService::requireLogin() craft()->userSession->requireLogin()}
+	 * in the individual methods.
+	 *
+	 * @var bool
+	 */
 	protected $allowAnonymous = array('actionGenerateTransform');
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Upload a file
+	 *
+	 * @return null
 	 */
 	public function actionUploadFile()
 	{
@@ -28,7 +52,7 @@ class AssetsController extends BaseController
 
 		// Conflict resolution data
 		$userResponse = craft()->request->getPost('userResponse');
-		$responseInfo = craft()->request->getPost('additionalInfo');
+		$theNewFileId = craft()->request->getPost('newFileId', 0);
 		$fileName = craft()->request->getPost('fileName');
 
 		// For a conflict resolution, the folder ID is no longer there and no file is actually being uploaded
@@ -36,7 +60,7 @@ class AssetsController extends BaseController
 		{
 			try
 			{
-				craft()->assets->checkPermissionByFolderIds($folderId, 'uploadToAssetSource');
+				$this->_checkUploadPermissions($folderId);
 			}
 			catch (Exception $e)
 			{
@@ -44,7 +68,7 @@ class AssetsController extends BaseController
 			}
 		}
 
-		$response = craft()->assets->uploadFile($folderId, $userResponse, $responseInfo, $fileName);
+		$response = craft()->assets->uploadFile($folderId, $userResponse, $theNewFileId, $fileName);
 
 		$this->returnJson($response->getResponseData());
 	}
@@ -53,21 +77,19 @@ class AssetsController extends BaseController
 	 * Uploads a file directly to a field for an entry.
 	 *
 	 * @throws Exception
+	 * @return null
 	 */
 	public function actionExpressUpload()
 	{
 		$this->requireAjaxRequest();
-		$fieldId = craft()->request->getPost('fieldId', 0);
-		$entryId = craft()->request->getPost('entryId', 0);
+		$fieldId = craft()->request->getPost('fieldId');
+		$elementId = craft()->request->getPost('elementId');
 
 		if (empty($_FILES['files']) || !isset($_FILES['files']['error'][0]) || $_FILES['files']['error'][0] != 0)
 		{
 			throw new Exception(Craft::t('The upload failed.'));
 		}
 
-		/**
-		 * @var AssetsFieldType
-		 */
 		$field = craft()->fields->populateFieldType(craft()->fields->getFieldById($fieldId));
 
 		if (!($field instanceof AssetsFieldType))
@@ -75,20 +97,16 @@ class AssetsController extends BaseController
 			throw new Exception(Craft::t('That is not an Assets field.'));
 		}
 
-		if ($entryId)
+		if ($elementId)
 		{
-			$field->element = craft()->elements->getElementById($entryId);
-		}
-		else
-		{
-			$field->element = new EntryModel();
+			$field->element = craft()->elements->getElementById($elementId);
 		}
 
 		$targetFolderId = $field->resolveSourcePath();
 
 		try
 		{
-			craft()->assets->checkPermissionByFolderIds($targetFolderId, 'uploadToAssetSource');
+			$this->_checkUploadPermissions($targetFolderId);
 		}
 		catch (Exception $e)
 		{
@@ -99,17 +117,129 @@ class AssetsController extends BaseController
 		$fileLocation = AssetsHelper::getTempFilePath(pathinfo($fileName, PATHINFO_EXTENSION));
 		move_uploaded_file($_FILES['files']['tmp_name'][0], $fileLocation);
 
-		$fileId = craft()->assets->insertFileByLocalPath($fileLocation, $fileName, $targetFolderId);
+		$response = craft()->assets->insertFileByLocalPath($fileLocation, $fileName, $targetFolderId, AssetConflictResolution::KeepBoth);
+
+		IOHelper::deleteFile($fileLocation, true);
+
+		if ($response->isError())
+		{
+			$this->returnErrorJson($response->getAttribute('errorMessage'));
+		}
+
+		$fileId = $response->getDataItem('fileId');
 
 		// Render and return
 		$element = craft()->elements->getElementById($fileId);
 		$html = craft()->templates->render('_elements/element', array('element' => $element));
-		$css = craft()->templates->getHeadHtml();
-		$this->returnJson(array('html' => $html, 'css' => $css));
+		$headHtml = craft()->templates->getHeadHtml();
+
+		$this->returnJson(array('html' => $html, 'headHtml' => $headHtml));
+	}
+
+	/**
+	 * Replace a file
+	 *
+	 * @throws Exception
+	 * @return null
+	 */
+	public function actionReplaceFile()
+	{
+		$this->requireAjaxRequest();
+		$fileId = craft()->request->getPost('fileId');
+
+		try
+		{
+			if (empty($_FILES['replaceFile']) || !isset($_FILES['replaceFile']['error']) || $_FILES['replaceFile']['error'] != 0)
+			{
+				throw new Exception(Craft::t('The upload failed.'));
+			}
+
+			$existingFile = craft()->assets->getFileById($fileId);
+
+			if (!$existingFile)
+			{
+				throw new Exception(Craft::t('The file to be replaced cannot be found.'));
+			}
+
+			$targetFolderId = $existingFile->folderId;
+
+			try
+			{
+				$this->_checkUploadPermissions($targetFolderId);
+			}
+			catch (Exception $e)
+			{
+				$this->returnErrorJson($e->getMessage());
+			}
+
+			// Fire an 'onBeforeReplaceFile' event
+			$event = new Event($this, array(
+				'asset' => $existingFile
+			));
+
+			craft()->assets->onBeforeReplaceFile($event);
+
+			// Is the event preventing this from happening?
+			if (!$event->performAction)
+			{
+				throw new Exception(Craft::t('The file could not be replaced.'));
+			}
+
+			$fileName = AssetsHelper::cleanAssetName($_FILES['replaceFile']['name']);
+			$fileLocation = AssetsHelper::getTempFilePath(pathinfo($fileName, PATHINFO_EXTENSION));
+			move_uploaded_file($_FILES['replaceFile']['tmp_name'], $fileLocation);
+
+			$response = craft()->assets->insertFileByLocalPath($fileLocation, $fileName, $targetFolderId, AssetConflictResolution::KeepBoth);
+			$insertedFileId = $response->getDataItem('fileId');
+
+			$newFile = craft()->assets->getFileById($insertedFileId);
+
+			if ($newFile && $existingFile)
+			{
+				$source = craft()->assetSources->populateSourceType($newFile->getSource());
+
+				if (StringHelper::toLowerCase($existingFile->filename) == StringHelper::toLowerCase($fileName))
+				{
+					$filenameToUse = $existingFile->filename;
+				}
+				else
+				{
+					// If the file uploaded had to resolve a conflict, grab the final filename
+					if ($response->getDataItem('filename'))
+					{
+						$filenameToUse = $response->getDataItem('filename');
+					}
+					else
+					{
+						$filenameToUse = $fileName;
+					}
+				}
+
+				$source->replaceFile($existingFile, $newFile, $filenameToUse);
+				IOHelper::deleteFile($fileLocation, true);
+			}
+			else
+			{
+				throw new Exception(Craft::t('Something went wrong with the replace operation.'));
+			}
+		}
+		catch (Exception $exception)
+		{
+			$this->returnErrorJson($exception->getMessage());
+		}
+
+		// Fire an 'onReplaceFile' event
+		craft()->assets->onReplaceFile(new Event($this, array(
+			'asset' => $existingFile
+		)));
+
+		$this->returnJson(array('success' => true, 'fileId' => $fileId));
 	}
 
 	/**
 	 * Create a folder.
+	 *
+	 * @return null
 	 */
 	public function actionCreateFolder()
 	{
@@ -134,13 +264,14 @@ class AssetsController extends BaseController
 
 	/**
 	 * Delete a folder.
+	 *
+	 * @return null
 	 */
 	public function actionDeleteFolder()
 	{
 		$this->requireLogin();
 		$this->requireAjaxRequest();
 		$folderId = craft()->request->getRequiredPost('folderId');
-		$response = craft()->assets->deleteFolderById($folderId);
 
 		try
 		{
@@ -151,12 +282,16 @@ class AssetsController extends BaseController
 			$this->returnErrorJson($e->getMessage());
 		}
 
+		$response = craft()->assets->deleteFolderById($folderId);
+
 		$this->returnJson($response->getResponseData());
 
 	}
 
 	/**
 	 * Rename a folder
+	 *
+	 * @return null
 	 */
 	public function actionRenameFolder()
 	{
@@ -183,6 +318,8 @@ class AssetsController extends BaseController
 
 	/**
 	 * Delete a file or multiple files.
+	 *
+	 * @return null
 	 */
 	public function actionDeleteFile()
 	{
@@ -205,6 +342,8 @@ class AssetsController extends BaseController
 
 	/**
 	 * Move a file or multiple files.
+	 *
+	 * @return null
 	 */
 	public function actionMoveFile()
 	{
@@ -231,6 +370,8 @@ class AssetsController extends BaseController
 
 	/**
 	 * Move a folder.
+	 *
+	 * @return null
 	 */
 	public function actionMoveFolder()
 	{
@@ -258,6 +399,9 @@ class AssetsController extends BaseController
 
 	/**
 	 * Generate a transform.
+	 *
+	 * @throws HttpException
+	 * @return null
 	 */
 	public function actionGenerateTransform()
 	{
@@ -271,78 +415,21 @@ class AssetsController extends BaseController
 			$handle = craft()->request->getPost('handle');
 			$fileModel = craft()->assets->getFileById($fileId);
 			$transformIndexModel = craft()->assetTransforms->getTransformIndex($fileModel, $handle);
-			$transformId = $transformIndexModel->id;
 		}
 		else
 		{
 			$transformIndexModel = craft()->assetTransforms->getTransformIndexModelById($transformId);
 		}
 
-		if (!$transformIndexModel)
+		try
 		{
-			throw new Exception(Craft::t('No asset image transform exists with the ID “{id}”', array('id' => $transformId)));
+			$url = craft()->assetTransforms->ensureTransformUrlByIndexModel($transformIndexModel);
+		}
+		catch (Exception $exception)
+		{
+			throw new HttpException(404, $exception->getMessage());
 		}
 
-		// Make sure we're not in the middle of working on this transform from a separete request
-		if ($transformIndexModel->inProgress)
-		{
-			for ($safety = 0; $safety < 100; $safety++)
-			{
-				// Wait a second!
-				sleep(1);
-				ini_set('max_execution_time', 120);
-
-				$transformIndexModel = craft()->assetTransforms->getTransformIndexModelById($transformId);
-
-				// Is it being worked on right now?
-				if ($transformIndexModel->inProgress)
-				{
-					// Make sure it hasn't been working for more than 30 seconds. Otherwise give up on the other request.
-					$time = new DateTime();
-
-					if ($time->getTimestamp() - $transformIndexModel->dateUpdated->getTimestamp() < 30)
-					{
-						continue;
-					}
-					else
-					{
-						$transformIndexModel->dateUpdated = new DateTime();
-						craft()->assetTransforms->storeTransformIndexData($transformIndexModel);
-						break;
-					}
-				}
-				else
-				{
-					// Must be done now!
-					break;
-				}
-			}
-		}
-
-		if (!$transformIndexModel->fileExists)
-		{
-			$transformIndexModel->inProgress = 1;
-			craft()->assetTransforms->storeTransformIndexData($transformIndexModel);
-
-			$result = craft()->assetTransforms->generateTransform($transformIndexModel);
-
-			if ($result)
-			{
-				$transformIndexModel->inProgress = 0;
-				$transformIndexModel->fileExists = 1;
-				craft()->assetTransforms->storeTransformIndexData($transformIndexModel);
-			}
-			else
-			{
-				// No source file. Throw a 404.
-				$transformIndexModel->inProgress = 0;
-				craft()->assetTransforms->storeTransformIndexData($transformIndexModel);
-				throw new HttpException(404, Craft::t("The requested image could not be found!"));
-			}
-
-		}
-
-		$url = craft()->assetTransforms->getUrlforTransformByIndexId($transformId);
 		if ($returnUrl)
 		{
 			$this->returnJson(array('url' => $url));
@@ -354,6 +441,8 @@ class AssetsController extends BaseController
 
 	/**
 	 * Get information about available transforms.
+	 *
+	 * @return null
 	 */
 	public function actionGetTransformInfo()
 	{
@@ -362,10 +451,31 @@ class AssetsController extends BaseController
 		$output = array();
 		foreach ($transforms as $transform)
 		{
-			$output[] = (object) array('id' => $transform->id, 'handle' => $transform->handle, 'name' => $transform->name);
+			$output[] = (object) array('id' => $transform->id, 'handle' => HtmlHelper::encode($transform->handle), 'name' => HtmlHelper::encode($transform->name));
 		}
 
 		$this->returnJson($output);
+	}
+
+	// Private Methods
+	// =========================================================================
+
+	/**
+	 * Check upload permissions.
+	 *
+	 * @param $folderId
+	 *
+	 * @return null
+	 */
+	private function _checkUploadPermissions($folderId)
+	{
+		$folder = craft()->assets->getFolderById($folderId);
+
+		// if folder exists and the source ID is null, it's a temp source and we always allow uploads there.
+		if (!(is_object($folder) && is_null($folder->sourceId)))
+		{
+			craft()->assets->checkPermissionByFolderIds($folderId, 'uploadToAssetSource');
+		}
 	}
 }
 

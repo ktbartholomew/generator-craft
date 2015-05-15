@@ -2,49 +2,48 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Field model class.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Field model class
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.models
+ * @since     1.0
  */
 class FieldModel extends BaseComponentModel
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_fieldType;
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Use the translated field name as the string representation.
 	 *
 	 * @return string
 	 */
-	function __toString()
+	public function __toString()
 	{
 		return Craft::t($this->name);
 	}
 
 	/**
-	 * @access protected
-	 * @return array
+	 * Returns whether this field has a column in the content table.
+	 *
+	 * @return bool
 	 */
-	protected function defineAttributes()
+	public function hasContentColumn()
 	{
-		return array_merge(parent::defineAttributes(), array(
-			'groupId'      => AttributeType::Number,
-			'name'         => AttributeType::String,
-			'handle'       => AttributeType::String,
-			'context'      => AttributeType::String,
-			'instructions' => AttributeType::String,
-			'required'     => AttributeType::Bool,
-			'translatable' => AttributeType::Bool,
+		$fieldType = $this->getFieldType();
 
-			'oldHandle'    => AttributeType::String,
-		));
+		return ($fieldType && $fieldType->defineContentAttribute());
 	}
 
 	/**
@@ -75,10 +74,34 @@ class FieldModel extends BaseComponentModel
 	/**
 	 * Returns the field's group.
 	 *
-	 * @return EntryUserModel
+	 * @return UserGroupModel
 	 */
 	public function getGroup()
 	{
 		return craft()->fields->getGroupById($this->groupId);
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * @inheritDoc BaseModel::defineAttributes()
+	 *
+	 * @return array
+	 */
+	protected function defineAttributes()
+	{
+		return array_merge(parent::defineAttributes(), array(
+			'groupId'      => AttributeType::Number,
+			'name'         => AttributeType::String,
+			'handle'       => AttributeType::String,
+			'context'      => AttributeType::String,
+			'instructions' => AttributeType::String,
+			'required'     => AttributeType::Bool,
+			'translatable' => AttributeType::Bool,
+
+			'oldHandle'    => AttributeType::String,
+			'columnPrefix' => AttributeType::String,
+		));
 	}
 }

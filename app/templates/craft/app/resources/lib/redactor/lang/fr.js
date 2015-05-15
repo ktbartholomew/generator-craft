@@ -68,6 +68,8 @@ $.Redactor.opts.langs['fr'] = {
 	underline: 'Souligner',
 	alignment: 'Alignement',
 	filename: 'Nom de fichier (optionnel)',
-	edit: 'Edit'
+	edit: 'Edit',
+	center: 'Center',
+	upload_label: 'Drop file here or '
 };
 })( jQuery );

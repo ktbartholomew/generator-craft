@@ -2,23 +2,24 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class CpHelper
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.helpers
+ * @since     1.0
  */
 class CpHelper
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
-	 * @static
-	 * @param bool $fetch
+	 * @param string|null $path
+	 * @param bool        $fetch
+	 *
 	 * @return array
 	 */
 	public static function getAlerts($path = null, $fetch = false)
@@ -33,8 +34,8 @@ class CpHelper
 
 		if (craft()->updates->isUpdateInfoCached() || $fetch)
 		{
-			// Fetch the updates regardless of whether we're on the Updates page or not,
-			// because the other alerts are relying on cached Elliott info
+			// Fetch the updates regardless of whether we're on the Updates page or not, because the other alerts are
+			// relying on cached Elliott info
 			$updateModel = craft()->updates->getUpdates();
 
 			if ($path != 'updates' && $user->can('performUpdates'))
@@ -44,7 +45,7 @@ class CpHelper
 					if (craft()->updates->criticalCraftUpdateAvailable($updateModel->app->releases))
 					{
 						$alerts[] = Craft::t('There’s a critical Craft update available.') .
-							' <a class="go" href="'.UrlHelper::getUrl('updates').'">'.Craft::t('Go to Updates').'</a>';
+							' <a class="go nowrap" href="'.UrlHelper::getUrl('updates').'">'.Craft::t('Go to Updates').'</a>';
 					}
 				}
 			}

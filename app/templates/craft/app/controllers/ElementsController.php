@@ -2,30 +2,33 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * The ElementsController class is a controller that handles various element related actions including retrieving and
+ * saving element and their corresponding HTML.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * Note that all actions in the controller require an authenticated Craft session via {@link BaseController::allowAnonymous}.
+ *
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.controllers
+ * @since     1.0
  */
-
-/**
- * Element actions
- */
-class ElementsController extends BaseController
+class ElementsController extends BaseElementsController
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
 	 * Renders and returns the body of an ElementSelectorModal.
+	 *
+	 * @return null
 	 */
 	public function actionGetModalBody()
 	{
-		$this->requireAjaxRequest();
-
 		$sourceKeys = craft()->request->getParam('sources');
-		$context = craft()->request->getParam('context');
-		$elementType = $this->_getElementType();
+		$elementType = $this->getElementType();
+		$context = $this->getContext();
 
 		if (is_array($sourceKeys))
 		{
@@ -55,83 +58,13 @@ class ElementsController extends BaseController
 	}
 
 	/**
-	 * Renders and returns the list of elements in an ElementIndex.
-	 */
-	public function actionGetElements()
-	{
-		$context = craft()->request->getParam('context');
-		$elementType = $this->_getElementType();
-		$sourceKey = craft()->request->getParam('source');
-		$viewState = craft()->request->getParam('viewState');
-		$disabledElementIds = craft()->request->getParam('disabledElementIds', array());
-
-		if (empty($viewState['mode']))
-		{
-			$viewState['mode'] = 'table';
-		}
-
-		$baseCriteria = craft()->request->getPost('criteria');
-		$criteria = craft()->elements->getCriteria($elementType->getClassHandle(), $baseCriteria);
-		$criteria->limit = 50;
-
-		if ($sourceKey)
-		{
-			$source = $elementType->getSource($sourceKey, $context);
-
-			if (!$source)
-			{
-				return false;
-			}
-
-			if (!empty($source['criteria']))
-			{
-				$criteria->setAttributes($source['criteria']);
-			}
-		}
-		else
-		{
-			$source = null;
-		}
-
-		if ($search = craft()->request->getParam('search'))
-		{
-			$criteria->search = $search;
-		}
-
-		if ($offset = craft()->request->getParam('offset'))
-		{
-			$criteria->offset = $offset;
-		}
-
-		$html = $elementType->getIndexHtml($criteria, $disabledElementIds, $viewState, $sourceKey, $context);
-
-		$totalVisible = $criteria->offset + count($criteria);
-
-		if ($criteria->limit)
-		{
-			$more = ($criteria->total() > $totalVisible);
-		}
-		else
-		{
-			$more = false;
-		}
-
-		$this->returnJson(array(
-			'html'         => $html,
-			'headHtml'     => craft()->templates->getHeadHtml(),
-			'footHtml'     => craft()->templates->getFootHtml(),
-			'totalVisible' => $totalVisible,
-			'more'         => $more,
-		));
-	}
-
-	/**
 	 * Returns the HTML for an element editor HUD.
+	 *
+	 * @throws HttpException
+	 * @return null
 	 */
 	public function actionGetEditorHtml()
 	{
-		$this->requireAjaxRequest();
-
 		$elementId = craft()->request->getRequiredPost('elementId');
 		$localeId = craft()->request->getPost('locale');
 		$elementTypeClass = craft()->elements->getElementTypeById($elementId);
@@ -149,11 +82,12 @@ class ElementsController extends BaseController
 
 	/**
 	 * Saves an element.
+	 *
+	 * @throws HttpException
+	 * @return null
 	 */
 	public function actionSaveElement()
 	{
-		$this->requireAjaxRequest();
-
 		$elementId = craft()->request->getRequiredPost('elementId');
 		$localeId = craft()->request->getRequiredPost('locale');
 		$elementTypeClass = craft()->elements->getElementTypeById($elementId);
@@ -189,8 +123,9 @@ class ElementsController extends BaseController
 		if ($elementType->saveElement($element, $params))
 		{
 			$this->returnJson(array(
-				'success'  => true,
-				'newTitle' => (string) $element
+				'success'   => true,
+				'newTitle'  => (string) $element,
+				'cpEditUrl' => $element->getCpEditUrl(),
 			));
 		}
 		else
@@ -200,31 +135,54 @@ class ElementsController extends BaseController
 	}
 
 	/**
-	 * Returns the element type based on the posted element type class.
+	 * Returns the HTML for a Categories field input, based on a given list of selected category IDs.
 	 *
-	 * @access private
-	 * @return BaseElementType
-	 * @throws Exception
+	 * @return null
 	 */
-	private function _getElementType()
+	public function actionGetCategoriesInputHtml()
 	{
-		$class = craft()->request->getRequiredParam('elementType');
-		$elementType = craft()->elements->getElementType($class);
+		$categoryIds = craft()->request->getParam('categoryIds', array());
 
-		if (!$elementType)
+		// Fill in the gaps
+		$categoryIds = craft()->categories->fillGapsInCategoryIds($categoryIds);
+
+		if ($categoryIds)
 		{
-			throw new Exception(Craft::t('No element type exists with the class “{class}”', array('class' => $class)));
+			$criteria = craft()->elements->getCriteria(ElementType::Category);
+			$criteria->id = $categoryIds;
+			$criteria->locale = craft()->request->getParam('locale');
+			$criteria->status = null;
+			$criteria->localeEnabled = null;
+			$criteria->limit = craft()->request->getParam('limit');
+			$categories = $criteria->find();
+		}
+		else
+		{
+			$categories = array();
 		}
 
-		return $elementType;
+		$html = craft()->templates->render('_components/fieldtypes/Categories/input', array(
+			'elements' => $categories,
+			'id'       => craft()->request->getParam('id'),
+			'name'     => craft()->request->getParam('name'),
+		));
+
+		$this->returnJson(array(
+			'html' => $html,
+		));
 	}
+
+	// Private Methods
+	// =========================================================================
 
 	/**
 	 * Returns the editor HTML for a given element.
 	 *
-	 * @access private
 	 * @param BaseElementModel $element
 	 * @param bool             $includeLocales
+	 *
+	 * @throws HttpException
+	 * @return null
 	 */
 	private function _returnEditorHtml(BaseElementModel $element, $includeLocales)
 	{
@@ -269,9 +227,10 @@ class ElementsController extends BaseController
 			'<input type="hidden" name="locale" value="'.$element->locale.'">' .
 			'<div>' .
 			craft()->templates->namespaceInputs($elementType->getEditorHtml($element)) .
-			'</div>' .
-			craft()->templates->getHeadHtml() .
-			craft()->templates->getFootHtml();
+			'</div>';
+
+		$response['headHtml'] = craft()->templates->getHeadHtml();
+		$response['footHtml'] = craft()->templates->getFootHtml();
 
 		$this->returnJson($response);
 	}

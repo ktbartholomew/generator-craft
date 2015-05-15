@@ -2,27 +2,54 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class Logger
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.etc.logging
+ * @since     1.0
  */
-
-
 class Logger extends \CLogger
 {
+	// Properties
+	// =========================================================================
+
 	/**
-	 * Logs a message.
-	 * Messages logged by this method may be retrieved back via {@link getLogs}.
+	 * This property will be passed as the parameter to {@link flush()} when it is called in {@link log()} due to the
+	 * limit of {@link autoFlush} being reached. By default, this property is false, meaning the filtered messages are
+	 * still kept in the memory by each log route after calling {@link flush()}. If this is true, the filtered messages
+	 * will be written to the actual medium each time {@link flush()} is called within {@link log()}.
+	 *
+	 * @var boolean
+	 */
+	public $autoDump = true;
+
+	/**
+	 * How many messages should be logged before they are flushed to destinations. Defaults to 10,000, meaning for every
+	 * 10,000 messages, the {@link flush} method will be automatically invoked once. If this is 0, it means messages
+	 * will never be flushed automatically.
+	 *
+	 * @var integer
+	 */
+	public $autoFlush = 0;
+
+	// Public Methods
+	// =========================================================================
+
+	/**
+	 * Logs a message. Messages logged by this method may be retrieved back
+	 * via {@link getLogs}.
 	 *
 	 * @param string $message  The message to be logged
 	 * @param string $level    The level of the message (e.g. 'Trace', 'Warning', 'Error'). It is case-insensitive.
-	 * @param bool   $force    Whether for force the message to be logged regardless of category or level
+	 * @param bool   $force    Whether for force the message to be logged regardless of category or level.
 	 * @param string $category The category of the message (e.g. 'system.web'). It is case-insensitive.
-	 * @param string $plugin   The plugin handle that made the log call.  If null, will be set to 'craft'. Use for determining which log file to write to.
+	 * @param string $plugin   The plugin handle that made the log call. If null, will be set to 'craft'. Use for
+	 *                         determining which log file to write to.
+	 *
+	 * @return null
 	 */
 	public function log($message, $level = 'info', $force = false, $category = 'application', $plugin = null)
 	{
@@ -46,24 +73,28 @@ class Logger extends \CLogger
 	 * Retrieves log messages.
 	 *
 	 * Messages may be filtered by log levels and/or categories.
-	 * A level filter is specified by a list of levels separated by comma or space (e.g. 'trace, error'). A category filter is similar to level filter
-	 * (e.g. 'system, system.web'). A difference is that in category filter you can use pattern like 'system.*' to indicate all categories starting with 'system'.
+	 *
+	 * A level filter is specified by a list of levels separated by comma or space (e.g. 'trace, error'). A category
+	 * filter is similar to level filter (e.g. 'system, system.web'). A difference is that in category filter you can
+	 * use pattern like 'system.*' to indicate all categories starting with 'system'.
 	 *
 	 * If you do not specify level filter, it will bring back logs at all levels. The same applies to category filter.
 	 *
-	 * Level filter and category filter are combinational, i.e., only messages satisfying both filter conditions will be returned.
+	 * Level filter and category filter are combinational, i.e., only messages satisfying both filter conditions will
+	 * be returned.
 	 *
 	 * @param string       $levels     level filter
 	 * @param array|string $categories category filter
 	 * @param array        $except
 	 *
-	 * @return array list of messages. Each array element represents one message
-	 * with the following structure:
-	 * array(
-	 *   [0] => message (string)
-	 *   [1] => level (string)
-	 *   [2] => category (string)
-	 *   [3] => timestamp (float, obtained by microtime(true));
+	 * @return array The list of messages. Each array element represents one message with the following structure:
+	 *
+	 *     array(
+	 *        [0] => message (string)
+	 *        [1] => level (string)
+	 *        [2] => category (string)
+	 *        [3] => timestamp (float, obtained by microtime(true)
+	 *     );
 	 */
 	public function getLogs($levels = '', $categories = array(), $except = array())
 	{
@@ -102,11 +133,15 @@ class Logger extends \CLogger
 		return $ret;
 	}
 
+	// Protected Methods
+	// =========================================================================
+
 	/**
 	 * Filter function used by {@link getLogs}
 	 *
-	 * @param array $value element to be filtered
-	 * @return boolean true if valid log, false if not.
+	 * @param array $value The element to be filtered
+	 *
+	 * @return bool true if valid log, false if not.
 	 */
 	protected function filterByCategory($value)
 	{
@@ -116,9 +151,10 @@ class Logger extends \CLogger
 	/**
 	 * Filter function used to filter included and excluded categories
 	 *
-	 * @param array $value element to be filtered
-	 * @param integer index of the values array to be used for check
-	 * @return boolean true if valid timing entry, false if not.
+	 * @param array $value The element to be filtered
+	 * @param int   $index The index of the values array to be used for check
+	 *
+	 * @return bool true if valid timing entry, false if not.
 	 */
 	protected function filterAllCategories($value, $index)
 	{
@@ -150,8 +186,9 @@ class Logger extends \CLogger
 	/**
 	 * Filter function used by {@link getLogs}
 	 *
-	 * @param array $value element to be filtered
-	 * @return boolean true if valid log, false if not.
+	 * @param array $value The element to be filtered
+	 *
+	 * @return bool true if valid log, false if not.
 	 */
 	protected function filterByLevel($value)
 	{

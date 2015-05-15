@@ -2,27 +2,51 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class AssetSourcesService
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @author     Pixel & Tonic, Inc. <support@pixelandtonic.com>
+ * @copyright  Copyright (c) 2014, Pixel & Tonic, Inc.
+ * @license    http://buildwithcraft.com/license Craft License Agreement
+ * @see        http://buildwithcraft.com
+ * @package    craft.app.services
+ * @since      1.0
+ * @deprecated This class will have several breaking changes in Craft 3.0.
  */
 class AssetSourcesService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_allSourceIds;
+
+	/**
+	 * @var
+	 */
 	private $_viewableSourceIds;
+
+	/**
+	 * @var
+	 */
 	private $_viewableSources;
+
+	/**
+	 * @var
+	 */
 	private $_sourcesById;
+
+	/**
+	 * @var bool
+	 */
 	private $_fetchedAllSources = false;
 
-	/* Source Types */
+	// Public Methods
+	// =========================================================================
+
+	// Source Types
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all available source types.
@@ -45,6 +69,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Returns an asset source type by its class handle.
 	 *
 	 * @param string $class
+	 *
 	 * @return BaseAssetSourceType|null
 	 */
 	public function getSourceType($class)
@@ -56,6 +81,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Populates an asset source type with a given source.
 	 *
 	 * @param AssetSourceModel $source
+	 *
 	 * @return BaseAssetSourceType|null
 	 */
 	public function populateSourceType(AssetSourceModel $source)
@@ -67,6 +93,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Returns a source type by a given source ID.
 	 *
 	 * @param $sourceId
+	 *
 	 * @return BaseAssetSourceType
 	 */
 	public function getSourceTypeById($sourceId)
@@ -75,7 +102,8 @@ class AssetSourcesService extends BaseApplicationComponent
 		return $this->populateSourceType($source);
 	}
 
-	/* Sources */
+	// Sources
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all of the source IDs.
@@ -129,6 +157,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Returns all sources that are viewable by the current user.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getViewableSources($indexBy = null)
@@ -187,6 +216,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Returns all sources.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getAllSources($indexBy = null)
@@ -231,6 +261,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Returns a source by its ID.
 	 *
 	 * @param int $sourceId
+	 *
 	 * @return AssetSourceModel|null
 	 */
 	public function getSourceById($sourceId)
@@ -242,13 +273,13 @@ class AssetSourcesService extends BaseApplicationComponent
 			$source->id = $sourceId;
 			$source->name = TempAssetSourceType::sourceName;
 			$source->type = TempAssetSourceType::sourceType;
-			$source->settings = array('path' => craft()->path->getAssetsTempSourcePath(), 'url' => UrlHelper::getResourceUrl('tempassets') . '/');
+			$source->settings = array('path' => craft()->path->getAssetsTempSourcePath(), 'url' => rtrim(UrlHelper::getResourceUrl(), '/').'/tempassets/');
 			return $source;
 		}
 		else
 		{
-			// If we've already fetched all sources we can save ourselves a trip to the DB
-			// for source IDs that don't exist
+			// If we've already fetched all sources we can save ourselves a trip to the DB for source IDs that don't
+			// exist
 			if (!$this->_fetchedAllSources &&
 				(!isset($this->_sourcesById) || !array_key_exists($sourceId, $this->_sourcesById))
 			)
@@ -280,8 +311,9 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Saves an asset source.
 	 *
 	 * @param AssetSourceModel $source
-	 * @return bool
+	 *
 	 * @throws \Exception
+	 * @return bool
 	 */
 	public function saveSource(AssetSourceModel $source)
 	{
@@ -294,8 +326,9 @@ class AssetSourcesService extends BaseApplicationComponent
 			$oldSource = AssetSourceModel::populateModel($sourceRecord);
 		}
 
-		$sourceRecord->name = $source->name;
-		$sourceRecord->type = $source->type;
+		$sourceRecord->name          = $source->name;
+		$sourceRecord->handle        = $source->handle;
+		$sourceRecord->type          = $source->type;
 		$sourceRecord->fieldLayoutId = $source->fieldLayoutId;
 
 		$sourceType = $this->populateSourceType($source);
@@ -332,7 +365,7 @@ class AssetSourcesService extends BaseApplicationComponent
 
 				// Save the new one
 				$fieldLayout = $source->getFieldLayout();
-				craft()->fields->saveLayout($fieldLayout, false);
+				craft()->fields->saveLayout($fieldLayout);
 
 				// Update the source record/model with the new layout ID
 				$source->fieldLayoutId = $fieldLayout->id;
@@ -391,6 +424,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Reorders asset sources.
 	 *
 	 * @param array $sourceIds
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -429,6 +463,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	 * Deletes an asset source by its ID.
 	 *
 	 * @param int $sourceId
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -472,7 +507,8 @@ class AssetSourcesService extends BaseApplicationComponent
 		}
 	}
 
-	// Private methods
+	// Private Methods
+	// =========================================================================
 
 	/**
 	 * Returns a DbCommand object prepped for retrieving sources.
@@ -482,7 +518,7 @@ class AssetSourcesService extends BaseApplicationComponent
 	private function _createSourceQuery()
 	{
 		return craft()->db->createCommand()
-			->select('id, fieldLayoutId, name, type, settings, sortOrder')
+			->select('id, fieldLayoutId, name, handle, type, settings, sortOrder')
 			->from('assetsources')
 			->order('sortOrder');
 	}
@@ -490,8 +526,8 @@ class AssetSourcesService extends BaseApplicationComponent
 	/**
 	 * Populates a source from its DB result.
 	 *
-	 * @access private
 	 * @param array $result
+	 *
 	 * @return AssetSourceModel
 	 */
 	private function _populateSource($result)
@@ -507,8 +543,9 @@ class AssetSourcesService extends BaseApplicationComponent
 	/**
 	 * Gets a source's record.
 	 *
-	 * @access private
 	 * @param int $sourceId
+	 *
+	 * @throws Exception
 	 * @return AssetSourceRecord
 	 */
 	private function _getSourceRecordById($sourceId = null)
@@ -519,7 +556,7 @@ class AssetSourcesService extends BaseApplicationComponent
 
 			if (!$sourceRecord)
 			{
-				throw new Exception(Craft::t('No source exists with the ID “{id}”', array('id' => $sourceId)));
+				throw new Exception(Craft::t('No source exists with the ID “{id}”.', array('id' => $sourceId)));
 			}
 		}
 		else

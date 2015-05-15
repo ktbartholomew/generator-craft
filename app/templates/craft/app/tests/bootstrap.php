@@ -1,15 +1,5 @@
 <?php
 
-/**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
 // Define path constants
 defined('CRAFT_BASE_PATH')         || define('CRAFT_BASE_PATH', str_replace('\\', '/', realpath(dirname(__FILE__).'/../../')).'/');
 defined('CRAFT_APP_PATH')          || define('CRAFT_APP_PATH',          CRAFT_BASE_PATH.'app/');
@@ -24,7 +14,6 @@ define('YII_ENABLE_EXCEPTION_HANDLER', false);
 define('YII_ENABLE_ERROR_HANDLER', false);
 define('YII_DEBUG', true);
 
-
 $_SERVER['DOCUMENT_ROOT']   = '/some/path/to/craft.dev';
 $_SERVER['HTTP_HOST']       = 'craft.dev';
 $_SERVER['HTTPS']           = 'off';
@@ -33,6 +22,18 @@ $_SERVER['REQUEST_URI']     = '/index.php';
 $_SERVER['SERVER_PORT']     = 80;
 $_SERVER['SCRIPT_FILENAME'] = '/some/path/to/craft.dev/index.php';
 $_SERVER['SCRIPT_NAME']     = '/index.php';
+
+// SHOW EVERYTHING
+error_reporting(E_ALL & ~E_STRICT);
+ini_set('display_errors', 1);
+
+mb_internal_encoding('UTF-8');
+mb_http_input('UTF-8');
+mb_http_output('UTF-8');
+mb_detect_order('auto');
+
+// Set default timezone to UTC
+date_default_timezone_set('UTC');
 
 function craft_createFolder($path)
 {

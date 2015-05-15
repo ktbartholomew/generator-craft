@@ -2,22 +2,22 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class TableFieldType
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.fieldtypes
+ * @since     1.0
  */
 class TableFieldType extends BaseFieldType
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
-	 * Returns the type of field this is.
+	 * @inheritDoc IComponentType::getName()
 	 *
 	 * @return string
 	 */
@@ -27,7 +27,7 @@ class TableFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Returns the content attribute config.
+	 * @inheritDoc IFieldType::defineContentAttribute()
 	 *
 	 * @return mixed
 	 */
@@ -37,21 +37,7 @@ class TableFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Defines the settings.
-	 *
-	 * @access protected
-	 * @return array
-	 */
-	protected function defineSettings()
-	{
-		return array(
-			'columns' => AttributeType::Mixed,
-			'defaults' => AttributeType::Mixed,
-		);
-	}
-
-	/**
-	 * Returns the field's settings HTML.
+	 * @inheritDoc ISavableComponentType::getSettingsHtml()
 	 *
 	 * @return string|null
 	 */
@@ -68,7 +54,7 @@ class TableFieldType extends BaseFieldType
 			$this->getSettings()->columns = $columns;
 		}
 
-		if (!$defaults)
+		if ($defaults === null)
 		{
 			$defaults = array('row1' => array());
 		}
@@ -137,51 +123,36 @@ class TableFieldType extends BaseFieldType
 			)
 		));
 
-		return $columnsField . $defaultsField;
+		return $columnsField.$defaultsField;
 	}
 
 	/**
-	 * Returns the field's input HTML.
+	 * @inheritDoc IFieldType::getInputHtml()
 	 *
 	 * @param string $name
 	 * @param mixed  $value
+	 *
 	 * @return string
 	 */
 	public function getInputHtml($name, $value)
 	{
 		$input = '<input type="hidden" name="'.$name.'" value="">';
 
-		$columns = $this->getSettings()->columns;
+		$tableHtml = $this->_getInputHtml($name, $value, false);
 
-		if ($columns)
+		if ($tableHtml)
 		{
-			if ($value === null && $this->isFresh())
-			{
-				$defaults = $this->getSettings()->defaults;
-
-				if (is_array($defaults))
-				{
-					$value = array_values($defaults);
-				}
-			}
-
-			$id = craft()->templates->formatInputId($name);
-
-			$input .= craft()->templates->render('_includes/forms/editableTable', array(
-				'id'   => $id,
-				'name' => $name,
-				'cols' => $columns,
-				'rows' => $value
-			));
+			$input .= $tableHtml;
 		}
 
 		return $input;
 	}
 
 	/**
-	 * Returns the input value as it should be saved to the database.
+	 * @inheritDoc IFieldType::prepValueFromPost()
 	 *
 	 * @param mixed $value
+	 *
 	 * @return mixed
 	 */
 	public function prepValueFromPost($value)
@@ -194,9 +165,10 @@ class TableFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Preps the field value for use.
+	 * @inheritDoc IFieldType::prepValue()
 	 *
 	 * @param mixed $value
+	 *
 	 * @return mixed
 	 */
 	public function prepValue($value)
@@ -216,6 +188,100 @@ class TableFieldType extends BaseFieldType
 			}
 
 			return $value;
+		}
+	}
+
+	/**
+	 * @inheritDoc BaseFieldType::getStaticHtml()
+	 *
+	 * @param mixed $value
+	 *
+	 * @return string
+	 */
+	public function getStaticHtml($value)
+	{
+		return $this->_getInputHtml(StringHelper::randomString(), $value, true);
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * @inheritDoc BaseSavableComponentType::defineSettings()
+	 *
+	 * @return array
+	 */
+	protected function defineSettings()
+	{
+		return array(
+			'columns' => AttributeType::Mixed,
+			'defaults' => AttributeType::Mixed,
+		);
+	}
+
+	/**
+	 * @inheritDoc ISavableComponentType::prepSettings()
+	 *
+	 * @param array $settings
+	 *
+	 * @return array
+	 */
+	public function prepSettings($settings)
+	{
+		if (!isset($settings['defaults']))
+		{
+			$settings['defaults'] = array();
+		}
+
+		return $settings;
+	}
+
+	// Private Methods
+	// =========================================================================
+
+	/**
+	 * Returns the field's input HTML.
+	 *
+	 * @param string $name
+	 * @param mixed  $value
+	 * @param bool  $static
+	 *
+	 * @return string
+	 */
+	private function _getInputHtml($name, $value, $static)
+	{
+		$columns = $this->getSettings()->columns;
+
+		if ($columns)
+		{
+			// Translate the column headings
+			foreach ($columns as &$column)
+			{
+				if (!empty($column['heading']))
+				{
+					$column['heading'] = Craft::t($column['heading']);
+				}
+			}
+
+			if ($this->isFresh())
+			{
+				$defaults = $this->getSettings()->defaults;
+
+				if (is_array($defaults))
+				{
+					$value = array_values($defaults);
+				}
+			}
+
+			$id = craft()->templates->formatInputId($name);
+
+			return craft()->templates->render('_includes/forms/editableTable', array(
+				'id'     => $id,
+				'name'   => $name,
+				'cols'   => $columns,
+				'rows'   => $value,
+				'static' => $static
+			));
 		}
 	}
 }

@@ -1,3 +1,5 @@
+{% requireAdmin %}
+
 {% extends (CraftEdition >= CraftClient ? "settings/email/_layout" : "_layouts/cp") %}
 
 {% set crumbs = [
@@ -27,9 +29,11 @@
 
 
 {% set content %}
-	<form id="settings-form" method="post" class="centered" accept-charset="UTF-8" data-saveshortcut="1">
+	<form id="settings-form" method="post" class="centered" accept-charset="UTF-8" data-saveshortcut>
 		<input type="hidden" name="action" value="systemSettings/saveEmailSettings">
 		<input type="hidden" name="redirect" value="settings">
+
+		{{ getCsrfInput() }}
 
 		{{ forms.textField({
 			first: true,

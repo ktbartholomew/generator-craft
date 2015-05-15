@@ -1,11 +1,9 @@
 /**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.resources
  */
 
 (function($) {
@@ -53,7 +51,7 @@ $s3RefreshBucketsBtn.click(function()
 
                 refreshingS3Buckets = true;
 
-                $s3BucketSelect.prop('disabled', false).empty();
+                $s3BucketSelect.prop('readonly', false).empty();
 
                 for (var i = 0; i < response.length; i++)
                 {
@@ -138,7 +136,7 @@ $rackspaceRefreshRegionBtn.click(function()
 				var currentRegion = $rackspaceRegionSelect.val(),
 					currentRegionStillExists = false;
 
-				$rackspaceRegionSelect.prop('disabled', false).empty();
+				$rackspaceRegionSelect.prop('readonly', false).empty();
 
 				for (var i = 0; i < response.length; i++)
 				{
@@ -163,7 +161,7 @@ $rackspaceRefreshContainersBtn.click(function()
 {
 	if ($rackspaceRegionSelect.val() == '-')
 	{
-		alert(Craft.t("Select a region first!"));
+		alert(Craft.t('Select a region first!'));
 		return;
 	}
     if ($rackspaceRefreshContainersBtn.hasClass('disabled'))
@@ -198,7 +196,7 @@ $rackspaceRefreshContainersBtn.click(function()
 
                 refreshingRackspaceContainers = true;
 
-                $rackspaceContainerSelect.prop('disabled', false).empty();
+                $rackspaceContainerSelect.prop('readonly', false).empty();
 
                 for (var i = 0; i < response.length; i++)
                 {
@@ -281,7 +279,7 @@ $googleRefreshBucketsBtn.click(function()
 
                 refreshingGoogleBuckets = true;
 
-                $googleBucketSelect.prop('disabled', false).empty();
+                $googleBucketSelect.prop('readonly', false).empty();
 
                 for (var i = 0; i < response.length; i++)
                 {
@@ -290,7 +288,7 @@ $googleRefreshBucketsBtn.click(function()
                         currentBucketStillExists = true;
                     }
 
-                    $googleBucketSelect.append('<option value="'+response[i].bucket+'" data-url-prefix="'+response[i].url_prefix+'">'+response[i].bucket+'</option>');
+                    $googleBucketSelect.append('<option value="'+response[i].bucket+'" data-url-prefix="'+response[i].urlPrefix+'">'+response[i].bucket+'</option>');
                 }
 
                 if (currentBucketStillExists)

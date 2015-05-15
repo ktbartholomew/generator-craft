@@ -1,11 +1,9 @@
 /**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.resources
  */
 
 (function($){
@@ -23,6 +21,10 @@ Craft.MatrixInput = Garnish.Base.extend(
 	inputIdPrefix: null,
 	maxBlocks: null,
 
+	showingAddBlockMenu: false,
+	addBlockBtnGroupWidth: null,
+	addBlockBtnContainerWidth: null,
+
 	$container: null,
 	$blockContainer: null,
 	$addBlockBtnContainer: null,
@@ -30,6 +32,7 @@ Craft.MatrixInput = Garnish.Base.extend(
 	$addBlockBtnGroupBtns: null,
 
 	blockSort: null,
+	blockSelect: null,
 	totalNewBlocks: 0,
 
 	init: function(id, blockTypes, inputNamePrefix, maxBlocks)
@@ -61,10 +64,34 @@ Craft.MatrixInput = Garnish.Base.extend(
 			collapsedBlocks = Craft.MatrixInput.getCollapsedBlockIds();
 
 		this.blockSort = new Garnish.DragSort($blocks, {
-			caboose: '<div/>',
 			handle: '> .actions > .move',
 			axis: 'y',
-			helperOpacity: 0.9
+			filter: $.proxy(function()
+			{
+				// Only return all the selected items if the target item is selected
+				if (this.blockSort.$targetItem.hasClass('sel'))
+				{
+					return this.blockSelect.getSelectedItems();
+				}
+				else
+				{
+					return this.blockSort.$targetItem;
+				}
+			}, this),
+			collapseDraggees: true,
+			magnetStrength: 4,
+			helperLagBase: 1.5,
+			helperOpacity: 0.9,
+			onSortChange: $.proxy(function() {
+				this.blockSelect.resetItemOrder();
+			}, this)
+		});
+
+		this.blockSelect = new Garnish.Select(this.$blockContainer, $blocks, {
+			multi: true,
+			vertical: true,
+			handle: '> .checkbox, > .titlebar',
+			checkboxMode: true
 		});
 
 		for (var i = 0; i < $blocks.length; i++)
@@ -110,16 +137,52 @@ Craft.MatrixInput = Garnish.Base.extend(
 
 	setNewBlockBtn: function()
 	{
-		if (this.$addBlockBtnGroup.removeClass('hidden').height() > 30)
+		// Do we know what the button group width is yet?
+		if (!this.addBlockBtnGroupWidth)
 		{
-			this.$addBlockBtnGroup.addClass('hidden');
-			this.$addBlockMenuBtn.removeClass('hidden');
+			this.addBlockBtnGroupWidth = this.$addBlockBtnGroup.width();
+
+			if (!this.addBlockBtnGroupWidth)
+			{
+				return;
+			}
 		}
-		else
+
+		// Only check if the container width has resized
+		if (this.addBlockBtnContainerWidth !== (this.addBlockBtnContainerWidth = this.$addBlockBtnContainer.width()))
 		{
-			this.$addBlockBtnGroup.removeClass('hidden');
-			this.$addBlockMenuBtn.addClass('hidden');
+			if (this.addBlockBtnGroupWidth > this.addBlockBtnContainerWidth)
+			{
+				if (!this.showingAddBlockMenu)
+				{
+					this.$addBlockBtnGroup.addClass('hidden');
+					this.$addBlockMenuBtn.removeClass('hidden');
+					this.showingAddBlockMenu = true;
+				}
+			}
+			else
+			{
+				if (this.showingAddBlockMenu)
+				{
+					this.$addBlockMenuBtn.addClass('hidden');
+					this.$addBlockBtnGroup.removeClass('hidden');
+					this.showingAddBlockMenu = false;
+
+					// Because Safari is awesome
+					if (navigator.userAgent.indexOf('Safari') !== -1)
+					{
+						Garnish.requestAnimationFrame($.proxy(function() {
+							this.$addBlockBtnGroup.css('opacity', 0.99);
+
+							Garnish.requestAnimationFrame($.proxy(function() {
+								this.$addBlockBtnGroup.css('opacity', '');
+							}, this));
+						}, this));
+					}
+				}
+			}
 		}
+
 	},
 
 	canAddMoreBlocks: function()
@@ -156,18 +219,23 @@ Craft.MatrixInput = Garnish.Base.extend(
 			'<div class="matrixblock" data-id="'+id+'">' +
 				'<input type="hidden" name="'+this.inputNamePrefix+'['+id+'][type]" value="'+type+'"/>' +
 				'<input type="hidden" name="'+this.inputNamePrefix+'['+id+'][enabled]" value="1"/>' +
+				'<div class="titlebar">' +
+					'<div class="blocktype">'+this.getBlockTypeByHandle(type).name+'</div>' +
+					'<div class="preview"></div>' +
+				'</div>' +
+				'<div class="checkbox" title="'+Craft.t('Select')+'"></div>' +
 				'<div class="actions">' +
 					'<div class="status off" title="'+Craft.t('Disabled')+'"></div>' +
 					'<a class="settings icon menubtn" title="'+Craft.t('Actions')+'" role="button"></a> ' +
-					'<div class="menu padded" data-align="right">' +
-						'<ul>' +
+					'<div class="menu">' +
+						'<ul class="padded">' +
 							'<li><a data-icon="collapse" data-action="collapse">'+Craft.t('Collapse')+'</a></li>' +
 							'<li class="hidden"><a data-icon="expand" data-action="expand">'+Craft.t('Expand')+'</a></li>' +
 							'<li><a data-icon="disabled" data-action="disable">'+Craft.t('Disable')+'</a></li>' +
 							'<li class="hidden"><a data-icon="enabled" data-action="enable">'+Craft.t('Enable')+'</a></li>' +
 						'</ul>' +
-						'<hr/>' +
-						'<ul>';
+						'<hr class="padded"/>' +
+						'<ul class="padded">';
 
 		for (var i = 0; i < this.blockTypes.length; i++)
 		{
@@ -177,8 +245,8 @@ Craft.MatrixInput = Garnish.Base.extend(
 
 		html +=
 						'</ul>' +
-						'<hr/>' +
-						'<ul>' +
+						'<hr class="padded"/>' +
+						'<ul class="padded">' +
 							'<li><a data-icon="remove" data-action="delete">'+Craft.t('Delete')+'</a></li>' +
 						'</ul>' +
 					'</div>' +
@@ -203,33 +271,77 @@ Craft.MatrixInput = Garnish.Base.extend(
 
 		$(bodyHtml).appendTo($fieldsContainer);
 
-		$block.css(this.getHiddenBlockCss($block)).animate({
+		// Animate the block into position
+		$block.css(this.getHiddenBlockCss($block)).velocity({
 			opacity: 1,
-			'margin-bottom': 14
+			'margin-bottom': 10
 		}, 'fast', $.proxy(function()
 		{
 			$block.css('margin-bottom', '');
-			$('body').append(footHtml);
+			Garnish.$bod.append(footHtml);
 			Craft.initUiElements($fieldsContainer);
 			new MatrixBlock(this, $block);
 			this.blockSort.addItems($block);
+			this.blockSelect.addItems($block);
 			this.updateAddBlockBtn();
+
+			Garnish.requestAnimationFrame(function()
+			{
+				// Scroll to the block
+				Garnish.scrollContainerToElement($block);
+			});
 		}, this));
+	},
+
+	getBlockTypeByHandle: function(handle)
+	{
+		for (var i = 0; i < this.blockTypes.length; i++)
+		{
+			if (this.blockTypes[i].handle == handle)
+			{
+				return this.blockTypes[i];
+			}
+		}
+	},
+
+	collapseSelectedBlocks: function()
+	{
+		this.callOnSelectedBlocks('collapse');
+	},
+
+	expandSelectedBlocks: function()
+	{
+		this.callOnSelectedBlocks('expand');
+	},
+
+	disableSelectedBlocks: function()
+	{
+		this.callOnSelectedBlocks('disable');
+	},
+
+	enableSelectedBlocks: function()
+	{
+		this.callOnSelectedBlocks('enable');
+	},
+
+	deleteSelectedBlocks: function()
+	{
+		this.callOnSelectedBlocks('selfDestruct');
+	},
+
+	callOnSelectedBlocks: function(fn)
+	{
+		for (var i = 0; i < this.blockSelect.$selectedItems.length; i++)
+		{
+			this.blockSelect.$selectedItems.eq(i).data('block')[fn]();
+		}
 	},
 
 	getHiddenBlockCss: function($block)
 	{
-		var marginBottom = -($block.outerHeight());
-
-		if ($block.is(':only-child'))
-		{
-			// Without this block, there would only be a 4px gap between the field heading and the Add Block buttons
-			marginBottom -= 10;
-		}
-
 		return {
 			opacity: 0,
-			marginBottom: marginBottom
+			marginBottom: -($block.outerHeight())
 		};
 	},
 
@@ -300,6 +412,7 @@ var MatrixBlock = Garnish.Base.extend(
 {
 	matrix: null,
 	$container: null,
+	$titlebar: null,
 	$fieldsContainer: null,
 	$previewContainer: null,
 	$actionMenu: null,
@@ -314,7 +427,11 @@ var MatrixBlock = Garnish.Base.extend(
 	{
 		this.matrix = matrix;
 		this.$container = $container;
+		this.$titlebar = $container.children('.titlebar');
+		this.$previewContainer = this.$titlebar.children('.preview');
 		this.$fieldsContainer = $container.children('.fields');
+
+		this.$container.data('block', this);
 
 		this.id    = this.$container.data('id');
 		this.isNew = (!this.id || (typeof this.id == 'string' && this.id.substr(0, 3) == 'new'));
@@ -327,19 +444,15 @@ var MatrixBlock = Garnish.Base.extend(
 		menuBtn.menu.settings.onOptionSelect = $.proxy(this, 'onMenuOptionSelect');
 
 		// Was this block already collapsed?
-		if (this.$container.data('collapsed'))
+		if (Garnish.hasAttr(this.$container, 'data-collapsed'))
 		{
 			this.collapse();
 		}
 
-		this.addListener(this.$container, 'dblclick', function(ev)
+		this.addListener(this.$titlebar, 'dblclick', function(ev)
 		{
-			// Was this in the top 30px?
-			if (ev.pageY <= this.$container.offset().top + 30)
-			{
-				ev.preventDefault();
-				this.toggle();
-			}
+			ev.preventDefault();
+			this.toggle();
 		});
 	},
 
@@ -362,10 +475,7 @@ var MatrixBlock = Garnish.Base.extend(
 			return;
 		}
 
-		if (!this.$previewContainer)
-		{
-			this.$previewContainer = $('<div class="preview" style="display: none;"/>').appendTo(this.$container);
-		}
+		this.$container.addClass('collapsed');
 
 		var previewHtml = '',
 			$fields = this.$fieldsContainer.children();
@@ -422,32 +532,25 @@ var MatrixBlock = Garnish.Base.extend(
 
 			if (inputPreviewText)
 			{
-				if (previewHtml)
-				{
-					previewHtml += ' <span>|</span> ';
-				}
-
-				previewHtml += '<strong>'+Craft.trim($field.children('.heading').text())+':</strong> '+inputPreviewText;
+				previewHtml += (previewHtml ? ' <span>|</span> ' : '') + inputPreviewText;
 			}
 		}
 
 		this.$previewContainer.html(previewHtml);
 
-		this.$previewContainer.stop();
-		this.$fieldsContainer.stop();
-		this.$container.stop();
+		this.$fieldsContainer.velocity('stop');
+		this.$container.velocity('stop');
 
 		if (animate)
 		{
-			this.$previewContainer.fadeIn('fast');
-			this.$fieldsContainer.fadeOut('fast');
-			this.$container.animate({ height: 0 }, 'fast');
+			this.$fieldsContainer.velocity('fadeOut', { duration: 'fast' });
+			this.$container.velocity({ height: 17 }, 'fast');
 		}
 		else
 		{
 			this.$previewContainer.show();
 			this.$fieldsContainer.hide();
-			this.$container.css({ height: 0 });
+			this.$container.css({ height: 17 });
 		}
 
 		setTimeout($.proxy(function() {
@@ -482,18 +585,19 @@ var MatrixBlock = Garnish.Base.extend(
 			return;
 		}
 
-		this.$previewContainer.stop();
-		this.$fieldsContainer.stop();
-		this.$container.stop();
+		this.$container.removeClass('collapsed');
+
+		this.$fieldsContainer.velocity('stop');
+		this.$container.velocity('stop');
 
 		var collapsedContainerHeight = this.$container.height();
 		this.$container.height('auto');
 		this.$fieldsContainer.show();
 		var expandedContainerHeight = this.$container.height();
 		this.$container.height(collapsedContainerHeight);
-		this.$fieldsContainer.hide().fadeIn('fast');
-		this.$previewContainer.fadeOut('fast');
-		this.$container.animate({ height: expandedContainerHeight }, 'fast', $.proxy(function() {
+		this.$fieldsContainer.hide().velocity('fadeIn', { duration: 'fast' });
+		this.$container.velocity({ height: expandedContainerHeight }, 'fast', $.proxy(function() {
+			this.$previewContainer.html('');
 			this.$container.height('auto');
 		}, this));
 
@@ -549,37 +653,69 @@ var MatrixBlock = Garnish.Base.extend(
 			this.$actionMenu.find('a[data-action=disable]:first').parent().removeClass('hidden');
 			this.$actionMenu.find('a[data-action=enable]:first').parent().addClass('hidden');
 		}, this), 200);
-
-		this.expand();
 	},
 
 	onMenuOptionSelect: function(option)
 	{
-		var $option = $(option);
+		var batchAction = (this.matrix.blockSelect.totalSelected > 1 && this.matrix.blockSelect.isSelected(this.$container)),
+			$option = $(option);
 
 		switch ($option.data('action'))
 		{
 			case 'collapse':
 			{
-				this.collapse(true);
+				if (batchAction)
+				{
+					this.matrix.collapseSelectedBlocks();
+				}
+				else
+				{
+					this.collapse(true);
+				}
+
 				break;
 			}
 
 			case 'expand':
 			{
-				this.expand();
+				if (batchAction)
+				{
+					this.matrix.expandSelectedBlocks();
+				}
+				else
+				{
+					this.expand();
+				}
+
 				break;
 			}
 
 			case 'disable':
 			{
-				this.disable();
+				if (batchAction)
+				{
+					this.matrix.disableSelectedBlocks();
+				}
+				else
+				{
+					this.disable();
+				}
+
 				break;
 			}
 
 			case 'enable':
 			{
-				this.enable();
+				if (batchAction)
+				{
+					this.matrix.enableSelectedBlocks();
+				}
+				else
+				{
+					this.enable();
+					this.expand();
+				}
+
 				break;
 			}
 
@@ -592,7 +728,18 @@ var MatrixBlock = Garnish.Base.extend(
 
 			case 'delete':
 			{
-				this.selfDestruct();
+				if (batchAction)
+				{
+					if (confirm(Craft.t('Are you sure you want to delete the selected blocks?')))
+					{
+						this.matrix.deleteSelectedBlocks();
+					}
+				}
+				else
+				{
+					this.selfDestruct();
+				}
+
 				break;
 			}
 		}
@@ -600,7 +747,7 @@ var MatrixBlock = Garnish.Base.extend(
 
 	selfDestruct: function()
 	{
-		this.$container.animate(this.matrix.getHiddenBlockCss(this.$container), 'fast', $.proxy(function()
+		this.$container.velocity(this.matrix.getHiddenBlockCss(this.$container), 'fast', $.proxy(function()
 		{
 			this.$container.remove();
 			this.matrix.updateAddBlockBtn();

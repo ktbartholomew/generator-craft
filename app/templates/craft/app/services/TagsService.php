@@ -2,25 +2,40 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Class TagsService
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.services
+ * @since     1.1
  */
 class TagsService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_allTagGroupIds;
+
+	/**
+	 * @var
+	 */
 	private $_tagGroupsById;
+
+	/**
+	 * @var bool
+	 */
 	private $_fetchedAllTagGroups = false;
 
+	// Public Methods
+	// =========================================================================
+
 	// Tag groups
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all of the group IDs.
@@ -51,6 +66,7 @@ class TagsService extends BaseApplicationComponent
 	 * Returns all tag groups.
 	 *
 	 * @param string|null $indexBy
+	 *
 	 * @return array
 	 */
 	public function getAllTagGroups($indexBy = null)
@@ -96,7 +112,8 @@ class TagsService extends BaseApplicationComponent
 	/**
 	 * Returns a group by its ID.
 	 *
-	 * @param $groupId
+	 * @param int $groupId
+	 *
 	 * @return TagGroupModel|null
 	 */
 	public function getTagGroupById($groupId)
@@ -122,6 +139,7 @@ class TagsService extends BaseApplicationComponent
 	 * Gets a group by its handle.
 	 *
 	 * @param string $groupHandle
+	 *
 	 * @return TagGroupModel|null
 	 */
 	public function getTagGroupByHandle($groupHandle)
@@ -140,6 +158,7 @@ class TagsService extends BaseApplicationComponent
 	 * Saves a tag group.
 	 *
 	 * @param TagGroupModel $tagGroup
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -151,7 +170,7 @@ class TagsService extends BaseApplicationComponent
 
 			if (!$tagGroupRecord)
 			{
-				throw new Exception(Craft::t('No tag group exists with the ID “{id}”', array('id' => $tagGroup->id)));
+				throw new Exception(Craft::t('No tag group exists with the ID “{id}”.', array('id' => $tagGroup->id)));
 			}
 
 			$oldTagGroup = TagGroupModel::populateModel($tagGroupRecord);
@@ -182,7 +201,7 @@ class TagsService extends BaseApplicationComponent
 
 				// Save the new one
 				$fieldLayout = $tagGroup->getFieldLayout();
-				craft()->fields->saveLayout($fieldLayout, false);
+				craft()->fields->saveLayout($fieldLayout);
 
 				// Update the tag group record/model with the new layout ID
 				$tagGroup->fieldLayoutId = $fieldLayout->id;
@@ -227,6 +246,7 @@ class TagsService extends BaseApplicationComponent
 	 * Deletes a tag group by its ID.
 	 *
 	 * @param int $tagGroupId
+	 *
 	 * @throws \Exception
 	 * @return bool
 	 */
@@ -282,12 +302,14 @@ class TagsService extends BaseApplicationComponent
 	}
 
 	// Tags
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns a tag by its ID.
 	 *
-	 * @param int $tagId
+	 * @param int         $tagId
 	 * @param string|null $localeId
+	 *
 	 * @return TagModel|null
 	 */
 	public function getTagById($tagId, $localeId)
@@ -299,7 +321,8 @@ class TagsService extends BaseApplicationComponent
 	 * Saves a tag.
 	 *
 	 * @param TagModel $tag
-	 * @throws Exception
+	 *
+	 * @throws Exception|\Exception
 	 * @return bool
 	 */
 	public function saveTag(TagModel $tag)
@@ -313,7 +336,7 @@ class TagsService extends BaseApplicationComponent
 
 			if (!$tagRecord)
 			{
-				throw new Exception(Craft::t('No tag exists with the ID “{id}”', array('id' => $tag->id)));
+				throw new Exception(Craft::t('No tag exists with the ID “{id}”.', array('id' => $tag->id)));
 			}
 		}
 		else
@@ -323,89 +346,101 @@ class TagsService extends BaseApplicationComponent
 
 		$tagRecord->groupId = $tag->groupId;
 
-		// See if we can find another tag with tha same name
-		$criteria = craft()->elements->getCriteria(ElementType::Tag);
-		$criteria->groupId = $tag->groupId;
-		$criteria->search  = 'name::"'.$tag->name.'"';
-		$criteria->id      = ($isNewTag ? null : 'not '.$tag->id);
-		$matchingTag = $criteria->first();
-
-		if ($matchingTag)
-		{
-			// The name needs to be 100% identical for validation to take care of this.
-			$tagRecord->name = $matchingTag->name;
-		}
-		else
-		{
-			$tagRecord->name = $tag->name;
-		}
-
 		$tagRecord->validate();
 		$tag->addErrors($tagRecord->getErrors());
 
-		if (!$tag->hasErrors())
+		if ($tag->hasErrors())
 		{
-			$transaction = craft()->db->getCurrentTransaction() === null ? craft()->db->beginTransaction() : null;
-			try
+			return false;
+		}
+
+		$transaction = craft()->db->getCurrentTransaction() === null ? craft()->db->beginTransaction() : null;
+
+		try
+		{
+			// Fire an 'onBeforeSaveTag' event
+			$event = new Event($this, array(
+				'tag'      => $tag,
+				'isNewTag' => $isNewTag
+			));
+
+			$this->onBeforeSaveTag($event);
+
+			// Is the event giving us the go-ahead?
+			if ($event->performAction)
 			{
-				// Fire an 'onBeforeSaveTag' event
-				$this->onBeforeSaveTag(new Event($this, array(
-					'tag'      => $tag,
-					'isNewTag' => $isNewTag
-				)));
+				$success = craft()->elements->saveElement($tag, false);
 
-				if (craft()->elements->saveElement($tag, false))
+				// If it didn't work, rollback the transaction in case something changed in onBeforeSaveTag
+				if (!$success)
 				{
-					// Now that we have an element ID, save it on the other stuff
-					if ($isNewTag)
-					{
-						$tagRecord->id = $tag->id;
-					}
-
-					$tagRecord->save(false);
-
-					// Fire an 'onSaveTag' event
-					$this->onSaveTag(new Event($this, array(
-						'tag'      => $tag,
-						'isNewTag' => $isNewTag
-					)));
-
-					if ($this->hasEventHandler('onSaveTagContent'))
-					{
-						// Fire an 'onSaveTagContent' event (deprecated)
-						$this->onSaveTagContent(new Event($this, array(
-							'tag' => $tag
-						)));
-					}
-
 					if ($transaction !== null)
 					{
-						$transaction->commit();
+						$transaction->rollback();
 					}
 
-					return true;
-				}
-			}
-			catch (\Exception $e)
-			{
-				if ($transaction !== null)
-				{
-					$transaction->rollback();
+					return false;
 				}
 
-				throw $e;
+				// Now that we have an element ID, save it on the other stuff
+				if ($isNewTag)
+				{
+					$tagRecord->id = $tag->id;
+				}
+
+				$tagRecord->save(false);
+			}
+			else
+			{
+				$success = false;
+			}
+
+			// Commit the transaction regardless of whether we saved the tag, in case something changed
+			// in onBeforeSaveTag
+			if ($transaction !== null)
+			{
+				$transaction->commit();
+			}
+		}
+		catch (\Exception $e)
+		{
+			if ($transaction !== null)
+			{
+				$transaction->rollback();
+			}
+
+			throw $e;
+		}
+
+		if ($success)
+		{
+			// Fire an 'onSaveTag' event
+			$this->onSaveTag(new Event($this, array(
+				'tag'      => $tag,
+				'isNewTag' => $isNewTag
+			)));
+
+			if ($this->hasEventHandler('onSaveTagContent'))
+			{
+				// Fire an 'onSaveTagContent' event (deprecated)
+				$this->onSaveTagContent(new Event($this, array(
+					'tag' => $tag
+				)));
 			}
 		}
 
-		return false;
+		return $success;
 	}
 
 	// Events
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Fires an 'onBeforeSaveTag' event.
 	 *
 	 * @param Event $event
+	 *
+	 * @return null
 	 */
 	public function onBeforeSaveTag(Event $event)
 	{
@@ -416,6 +451,8 @@ class TagsService extends BaseApplicationComponent
 	 * Fires an 'onSaveTag' event.
 	 *
 	 * @param Event $event
+	 *
+	 * @return null
 	 */
 	public function onSaveTag(Event $event)
 	{
@@ -426,7 +463,9 @@ class TagsService extends BaseApplicationComponent
 	 * Fires an 'onSaveTagContent' event.
 	 *
 	 * @param Event $event
-	 * @deprecated Deprecated in 2.0.
+	 *
+	 * @deprecated Deprecated in 2.0. Use {@link onSaveTag() `tags.onSaveTag`} instead.
+	 * @return null
 	 */
 	public function onSaveTagContent(Event $event)
 	{

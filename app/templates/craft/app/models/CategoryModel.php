@@ -2,35 +2,30 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Category model class.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Category model class
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.models
+ * @since     2.0
  */
 class CategoryModel extends BaseElementModel
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var string
+	 */
 	protected $elementType = ElementType::Category;
 
-	/**
-	 * @access protected
-	 * @return array
-	 */
-	protected function defineAttributes()
-	{
-		return array_merge(parent::defineAttributes(), array(
-			'groupId' => AttributeType::Number,
-		));
-	}
+	// Public Methods
+	// =========================================================================
 
 	/**
-	 * Returns the field layout used by this element.
+	 * @inheritDoc BaseElementModel::getFieldLayout()
 	 *
 	 * @return FieldLayoutModel|null
 	 */
@@ -45,7 +40,7 @@ class CategoryModel extends BaseElementModel
 	}
 
 	/**
-	 * Returns the URL format used to generate this element's URL.
+	 * @inheritDoc BaseElementModel::getUrlFormat()
 	 *
 	 * @return string|null
 	 */
@@ -72,13 +67,28 @@ class CategoryModel extends BaseElementModel
 	}
 
 	/**
-	 * Returns whether the current user can edit the element.
+	 * @inheritDoc BaseElementModel::isEditable()
 	 *
 	 * @return bool
 	 */
 	public function isEditable()
 	{
 		return craft()->userSession->checkPermission('editCategories:'.$this->groupId);
+	}
+
+	/**
+	 * @inheritDoc BaseElementModel::getCpEditUrl()
+	 *
+	 * @return string|false
+	 */
+	public function getCpEditUrl()
+	{
+		$group = $this->getGroup();
+
+		if ($group)
+		{
+			return UrlHelper::getCpUrl('categories/'.$group->handle.'/'.$this->id.($this->slug ? '-'.$this->slug : ''));
+		}
 	}
 
 	/**
@@ -92,5 +102,23 @@ class CategoryModel extends BaseElementModel
 		{
 			return craft()->categories->getGroupById($this->groupId);
 		}
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
+	 * @inheritDoc BaseModel::defineAttributes()
+	 *
+	 * @return array
+	 */
+	protected function defineAttributes()
+	{
+		return array_merge(parent::defineAttributes(), array(
+			'groupId' => AttributeType::Number,
+
+			// Just used for saving categories
+			'newParentId'      => AttributeType::Number,
+		));
 	}
 }

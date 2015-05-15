@@ -31,7 +31,7 @@
                     name: 'bucket',
                     options: { (settings.bucket): settings.bucket },
                     value: settings.bucket,
-                    disabled: true,
+                    readonly: true,
                     class: 'google-bucket-select'
                 }) }}
             </td>
@@ -59,7 +59,7 @@
     value: settings.subfolder,
     errors: settings.getErrors('subfolder'),
     required: false,
-    placeholder: 'path/to/subfolder'
+    placeholder: "path/to/subfolder"|t
 }) }}
 
 {{ forms.textField({

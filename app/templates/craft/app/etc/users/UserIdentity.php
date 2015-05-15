@@ -2,22 +2,20 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * UserIdentity represents the data needed to identify a user. It contains the authentication method that checks if the
+ * provided data can identity the user.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * UserIdentity represents the data needed to identify a user.
- * It contains the authentication method that checks if the provided data can identity the user.
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.etc.users
+ * @since     1.0
  */
 class UserIdentity extends \CUserIdentity
 {
-	private $_id;
+	// Constants
+	// =========================================================================
 
 	const ERROR_ACCOUNT_LOCKED          = 50;
 	const ERROR_ACCOUNT_COOLDOWN        = 51;
@@ -25,11 +23,43 @@ class UserIdentity extends \CUserIdentity
 	const ERROR_ACCOUNT_SUSPENDED       = 53;
 	const ERROR_NO_CP_ACCESS            = 54;
 	const ERROR_NO_CP_OFFLINE_ACCESS    = 55;
+	const ERROR_PENDING_VERIFICATION    = 56;
+
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var int
+	 */
+	private $_id;
+
+	/**
+	 * @var UserModel
+	 */
+	private $_userModel;
+
+	// Public Methods
+	// =========================================================================
+
+
+	/**
+	 * UserIdentity constructor.
+	 *
+	 * @param string $username username
+	 * @param string $password password
+	 */
+	public function __construct($username,$password)
+	{
+		$this->username = $username;
+		$this->password = $password;
+
+		$this->_userModel = craft()->users->getUserByUsernameOrEmail($username);
+	}
 
 	/**
 	 * Authenticates a user against the database.
 	 *
-	 * @return boolean whether authentication succeeds.
+	 * @return bool true, if authentication succeeds, false otherwise.
 	 */
 	public function authenticate()
 	{
@@ -37,8 +67,7 @@ class UserIdentity extends \CUserIdentity
 
 		if ($user)
 		{
-			$this->_processUserStatus($user);
-			return true;
+			return $this->_processUserStatus($user);
 		}
 		else
 		{
@@ -48,7 +77,7 @@ class UserIdentity extends \CUserIdentity
 	}
 
 	/**
-	 * @return mixed
+	 * @return int
 	 */
 	public function getId()
 	{
@@ -56,17 +85,40 @@ class UserIdentity extends \CUserIdentity
 	}
 
 	/**
-	 * @access private
+	 * @return UserModel
+	 */
+	public function getUserModel()
+	{
+		return $this->_userModel;
+	}
+
+	/**
+	 * @param $user
+	 *
+	 * @return null
+	 */
+	public function logUserIn($user)
+	{
+		$this->_id = $user->id;
+		$this->username = $user->username;
+		$this->errorCode = static::ERROR_NONE;
+		$this->_userModel = $user;
+	}
+
+	// Private Methods
+	// =========================================================================
+
+	/**
 	 * @param UserModel $user
+	 *
 	 * @throws Exception
-	 * @return void
+	 * @return null
 	 */
 	private function _processUserStatus(UserModel $user)
 	{
 		switch ($user->status)
 		{
 			// If the account is pending, they don't exist yet.
-			case UserStatus::Pending:
 			case UserStatus::Archived:
 			{
 				$this->errorCode = static::ERROR_USERNAME_INVALID;
@@ -85,6 +137,12 @@ class UserIdentity extends \CUserIdentity
 				break;
 			}
 
+			case UserStatus::Pending:
+			{
+				$this->errorCode = static::ERROR_PENDING_VERIFICATION;
+				break;
+			}
+
 			case UserStatus::Active:
 			{
 				// Validate the password
@@ -94,7 +152,7 @@ class UserIdentity extends \CUserIdentity
 					{
 						$this->_id = $user->id;
 						$this->errorCode = static::ERROR_PASSWORD_RESET_REQUIRED;
-						craft()->users->sendForgotPasswordEmail($user);
+						craft()->users->sendPasswordResetEmail($user);
 					}
 					else if (craft()->request->isCpRequest() && !$user->can('accessCp'))
 					{
@@ -106,8 +164,8 @@ class UserIdentity extends \CUserIdentity
 					}
 					else
 					{
-						// Finally, everything is well with the world. Let's log in.
-						$this->logUserIn($user);
+						// Everything is good.
+						$this->errorCode = static::ERROR_NONE;
 					}
 				}
 				else
@@ -132,22 +190,14 @@ class UserIdentity extends \CUserIdentity
 				throw new Exception(Craft::t('User has unknown status “{status}”', array($user->status)));
 			}
 		}
+
+		return $this->errorCode === static::ERROR_NONE;
 	}
 
 	/**
-	 * @param $user
-	 */
-	public function logUserIn($user)
-	{
-		$this->_id = $user->id;
-		$this->username = $user->username;
-		$this->errorCode = static::ERROR_NONE;
-	}
-
-	/**
-	 * Returns the proper Account Locked error code, based on the system's Invalid Login Mode
+	 * Returns the proper Account Locked error code, based on the system's
+	 * Invalid Login Mode
 	 *
-	 * @access private
 	 * @return int
 	 */
 	private function _getLockedAccountErrorCode()

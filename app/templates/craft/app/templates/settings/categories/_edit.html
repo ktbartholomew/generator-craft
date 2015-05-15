@@ -23,9 +23,11 @@
 {% from _self import urlFormatText %}
 
 {% set content %}
-	<form method="post" accept-charset="UTF-8" data-saveshortcut="1">
+	<form method="post" accept-charset="UTF-8" data-saveshortcut>
 		<input type="hidden" name="action" value="categories/saveGroup">
 		<input type="hidden" name="redirect" value="settings/categories">
+		{{ getCsrfInput() }}
+
 		{% if categoryGroup.id %}<input type="hidden" name="groupId" value="{{ categoryGroup.id }}">{% endif %}
 
 		<div id="categorygroup-settings">
@@ -79,11 +81,11 @@
 									{% if craft.isLocalized() %}
 										<th class="thin nowrap">{{ locale.id }}</th>
 									{% endif %}
-									<td>
+									<td class="topalign">
 										{% set value = (categoryGroup.locales[locale.id] is defined ? categoryGroup.locales[locale.id].urlFormat : null) %}
 										{{ _self.urlFormatText(locale, categoryGroup, 'urlFormat', value) }}
 									</td>
-									<td>
+									<td class="topalign">
 										{% set value = (categoryGroup.locales[locale.id] is defined ? categoryGroup.locales[locale.id].nestedUrlFormat : '{parent.uri}/{slug}') %}
 										{{ _self.urlFormatText(locale, categoryGroup, 'nestedUrlFormat', value) }}
 									</td>
@@ -124,8 +126,7 @@
 
 		<div id="categorygroup-fieldlayout" class="hidden">
 			{% include "_includes/fieldlayoutdesigner" with {
-				fieldLayout: categoryGroup.getFieldLayout(),
-				customizableTabs: false
+				fieldLayout: categoryGroup.getFieldLayout()
 			} only %}
 		</div>
 

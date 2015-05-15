@@ -1,25 +1,35 @@
 <?php
 namespace Craft;
 
-/**
- * Craft by Pixel & Tonic
- *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
- * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
- * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
 craft()->requireEdition(Craft::Pro);
 
 /**
+ * Class UserPermissionsService
  *
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
+ * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
+ * @license   http://buildwithcraft.com/license Craft License Agreement
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.services
+ * @since     1.0
  */
 class UserPermissionsService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var
+	 */
 	private $_permissionsByGroupId;
+
+	/**
+	 * @var
+	 */
 	private $_permissionsByUserId;
+
+	// Public Methods
+	// =========================================================================
 
 	/**
 	 * Returns all of the known permissions, sorted by category.
@@ -29,6 +39,7 @@ class UserPermissionsService extends BaseApplicationComponent
 	public function getAllPermissions()
 	{
 		// General
+		// ---------------------------------------------------------------------
 
 		$general = array(
 			'accessSiteWhenSystemIsOff' => array(
@@ -60,6 +71,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		$permissions[Craft::t('General')] = $general;
 
 		// Users
+		// ---------------------------------------------------------------------
 
 		$permissions[Craft::t('Users')] = array(
 			'editUsers' => array(
@@ -72,7 +84,12 @@ class UserPermissionsService extends BaseApplicationComponent
 						'label' => Craft::t('Assign user groups and permissions')
 					),
 					'administrateUsers' => array(
-						'label' => Craft::t('Administrate users')
+						'label' => Craft::t('Administrate users'),
+						'nested' => array(
+							'changeUserEmails' => array(
+								'label' => Craft::t('Change users’ emails')
+							)
+						)
 					)
 				),
 			),
@@ -82,6 +99,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		);
 
 		// Locales
+		// ---------------------------------------------------------------------
 
 		if (craft()->isLocalized())
 		{
@@ -97,16 +115,26 @@ class UserPermissionsService extends BaseApplicationComponent
 		}
 
 		// Entries
+		// ---------------------------------------------------------------------
 
 		$sections = craft()->sections->getAllSections();
 
 		foreach ($sections as $section)
 		{
 			$label = Craft::t('Section - {section}', array('section' => Craft::t($section->name)));
-			$permissions[$label] = $this->_getEntryPermissions($section->id);
+
+			if ($section->type == SectionType::Single)
+			{
+				$permissions[$label] = $this->_getSingleEntryPermissions($section);
+			}
+			else
+			{
+				$permissions[$label] = $this->_getEntryPermissions($section);
+			}
 		}
 
 		// Global sets
+		// ---------------------------------------------------------------------
 
 		$globalSets = craft()->globals->getAllSets();
 
@@ -116,6 +144,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		}
 
 		// Categories
+		// ---------------------------------------------------------------------
 
 		$categoryGroups = craft()->categories->getAllGroups();
 
@@ -125,6 +154,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		}
 
 		// Asset sources
+		// ---------------------------------------------------------------------
 
 		$assetSources = craft()->assetSources->getAllSources();
 
@@ -135,6 +165,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		}
 
 		// Plugins
+		// ---------------------------------------------------------------------
 
 		foreach (craft()->plugins->call('registerUserPermissions') as $pluginHandle => $pluginPermissions)
 		{
@@ -149,6 +180,7 @@ class UserPermissionsService extends BaseApplicationComponent
 	 * Returns all of a given user group's permissions.
 	 *
 	 * @param int $groupId
+	 *
 	 * @return array
 	 */
 	public function getPermissionsByGroupId($groupId)
@@ -172,6 +204,7 @@ class UserPermissionsService extends BaseApplicationComponent
 	 * Returns all of the group permissions a given user has.
 	 *
 	 * @param int $userId
+	 *
 	 * @return array
 	 */
 	public function getGroupPermissionsByUserId($userId)
@@ -188,14 +221,15 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Returns whether a given user group has a given permission.
 	 *
-	 * @param int $groupId
+	 * @param int    $groupId
 	 * @param string $checkPermission
+	 *
 	 * @return bool
 	 */
 	public function doesGroupHavePermission($groupId, $checkPermission)
 	{
 		$allPermissions = $this->getPermissionsByGroupId($groupId);
-		$checkPermission = StringHelper::toLowerCase($checkPermission);
+		$checkPermission = strtolower($checkPermission);
 
 		return in_array($checkPermission, $allPermissions);
 	}
@@ -203,8 +237,9 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Saves new permissions for a user group.
 	 *
-	 * @param int $groupId
+	 * @param int   $groupId
 	 * @param array $permissions
+	 *
 	 * @return bool
 	 */
 	public function saveGroupPermissions($groupId, $permissions)
@@ -237,6 +272,7 @@ class UserPermissionsService extends BaseApplicationComponent
 	 * Returns all of a given user's permissions.
 	 *
 	 * @param int $userId
+	 *
 	 * @return array
 	 */
 	public function getPermissionsByUserId($userId)
@@ -261,14 +297,15 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Returns whether a given user has a given permission.
 	 *
-	 * @param int $userId
+	 * @param int    $userId
 	 * @param string $checkPermission
+	 *
 	 * @return bool
 	 */
 	public function doesUserHavePermission($userId, $checkPermission)
 	{
 		$allPermissions = $this->getPermissionsByUserId($userId);
-		$checkPermission = StringHelper::toLowerCase($checkPermission);
+		$checkPermission = strtolower($checkPermission);
 
 		return in_array($checkPermission, $allPermissions);
 	}
@@ -276,8 +313,9 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Saves new permissions for a user.
 	 *
-	 * @param int $userId
+	 * @param int   $userId
 	 * @param array $permissions
+	 *
 	 * @return bool
 	 */
 	public function saveUserPermissions($userId, $permissions)
@@ -287,7 +325,8 @@ class UserPermissionsService extends BaseApplicationComponent
 			->delete('userpermissions_users', array('userId' => $userId));
 
 		// Filter out any orphaned permissions
-		$permissions = $this->_filterOrphanedPermissions($permissions);
+		$groupPermissions = $this->getGroupPermissionsByUserId($userId);
+		$permissions = $this->_filterOrphanedPermissions($permissions, $groupPermissions);
 
 		if ($permissions)
 		{
@@ -307,18 +346,55 @@ class UserPermissionsService extends BaseApplicationComponent
 		return true;
 	}
 
+	// Private Methods
+	// =========================================================================
+
 	/**
-	 * Returns the entry permissions for a given section.
+	 * Returns the entry permissions for a given Single section.
 	 *
-	 * @access private
-	 * @param int|null $sectionId
+	 * @param SectionModel $section
+	 *
 	 * @return array
 	 */
-	private function _getEntryPermissions($sectionId)
+	private function _getSingleEntryPermissions($section)
 	{
-		$suffix = ':'.$sectionId;
+		$suffix = ':'.$section->id;
 
-		$permissions = array(
+		return array(
+			"editEntries{$suffix}" => array(
+				'label' => Craft::t('Edit “{title}”', array('title' => Craft::t($section->name))),
+				'nested' => array(
+					"publishEntries{$suffix}" => array(
+						'label' => Craft::t('Publish live changes')
+					),
+					"editPeerEntryDrafts{$suffix}" => array(
+						'label' => Craft::t('Edit other authors’ drafts'),
+						'nested' => array(
+							"publishPeerEntryDrafts{$suffix}" => array(
+								'label' => Craft::t('Publish other authors’ drafts')
+							),
+							"deletePeerEntryDrafts{$suffix}" => array(
+								'label' => Craft::t('Delete other authors’ drafts')
+							),
+						)
+					),
+				)
+			)
+		);
+	}
+
+	/**
+	 * Returns the entry permissions for a given Channel or Structure section.
+	 *
+	 * @param SectionModel $section
+	 *
+	 * @return array
+	 */
+	private function _getEntryPermissions($section)
+	{
+		$suffix = ':'.$section->id;
+
+		return array(
 			"editEntries{$suffix}" => array(
 				'label' => Craft::t('Edit entries'),
 				'nested' => array(
@@ -326,44 +402,43 @@ class UserPermissionsService extends BaseApplicationComponent
 						'label' => Craft::t('Create entries'),
 					),
 					"publishEntries{$suffix}" => array(
-						'label' => Craft::t('Publish entries live')
+						'label' => Craft::t('Publish live changes')
+					),
+					"deleteEntries{$suffix}" => array(
+						'label' => Craft::t('Delete entries')
+					),
+					"editPeerEntries{$suffix}" => array(
+						'label' => Craft::t('Edit other authors’ entries'),
+						'nested' => array(
+							"publishPeerEntries{$suffix}" => array(
+								'label' => Craft::t('Publish live changes for other authors’ entries')
+							),
+							"deletePeerEntries{$suffix}" => array(
+								'label' => Craft::t('Delete other authors’ entries')
+							),
+						)
+					),
+					"editPeerEntryDrafts{$suffix}" => array(
+						'label' => Craft::t('Edit other authors’ drafts'),
+						'nested' => array(
+							"publishPeerEntryDrafts{$suffix}" => array(
+								'label' => Craft::t('Publish other authors’ drafts')
+							),
+							"deletePeerEntryDrafts{$suffix}" => array(
+								'label' => Craft::t('Delete other authors’ drafts')
+							),
+						)
 					),
 				)
-			),
-			"deleteEntries{$suffix}" => array(
-				'label' => Craft::t('Delete entries')
-			),
-		);
-
-		$permissions["editEntries{$suffix}"]['nested']["editPeerEntries{$suffix}"] = array(
-			'label' => Craft::t('Edit other authors’ entries'),
-			'nested' => array(
-				"deletePeerEntries{$suffix}" => array(
-					'label' => Craft::t('Delete other authors’ entries')
-				),
 			)
 		);
-
-		$permissions["editEntries{$suffix}"]['nested']["editPeerEntries{$suffix}"]['nested']["editPeerEntryDrafts{$suffix}"] = array(
-			'label' => Craft::t('Edit other authors’ drafts'),
-			'nested' => array(
-				"publishPeerEntryDrafts{$suffix}" => array(
-					'label' => Craft::t('Publish other authors’ drafts')
-				),
-				"deletePeerEntryDrafts{$suffix}" => array(
-					'label' => Craft::t('Delete other authors’ drafts')
-				),
-			)
-		);
-
-		return $permissions;
 	}
 
 	/**
 	 * Returns the global set permissions.
 	 *
-	 * @access private
 	 * @param array $globalSets
+	 *
 	 * @return array
 	 */
 	private function _getGlobalSetPermissions($globalSets)
@@ -373,7 +448,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		foreach ($globalSets as $globalSet)
 		{
 			$permissions['editGlobalSet:'.$globalSet->id] = array(
-				'label' => Craft::t('Edit “{title}”', array('title' => $globalSet->name))
+				'label' => Craft::t('Edit “{title}”', array('title' => Craft::t($globalSet->name)))
 			);
 		}
 
@@ -383,8 +458,8 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Returns the category permissions.
 	 *
-	 * @access private
-	 * @param array $globalSets
+	 * @param $groups
+	 *
 	 * @return array
 	 */
 	private function _getCategoryGroupPermissions($groups)
@@ -394,7 +469,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		foreach ($groups as $group)
 		{
 			$permissions['editCategories:'.$group->id] = array(
-				'label' => Craft::t('Edit “{title}”', array('title' => $group->name))
+				'label' => Craft::t('Edit “{title}”', array('title' => Craft::t($group->name)))
 			);
 		}
 
@@ -404,8 +479,8 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Returns the array source permissions.
 	 *
-	 * @access private
 	 * @param int $sourceId
+	 *
 	 * @return array
 	 */
 	private function _getAssetSourcePermissions($sourceId)
@@ -433,11 +508,13 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Filters out any orphaned permissions.
 	 *
-	 * @access private
-	 * @param array $postedPermissions
-	 * @return array $filteredPermissions
+	 * @param array $postedPermissions The posted permissions.
+	 * @param array $groupPermissions  Permissions the user is already assigned to via their group, if we're saving a
+	 *                                 user's permissions.
+	 *
+	 * @return array $filteredPermissions The permissions we'll actually let them save.
 	 */
-	private function _filterOrphanedPermissions($postedPermissions)
+	private function _filterOrphanedPermissions($postedPermissions, $groupPermissions = array())
 	{
 		$filteredPermissions = array();
 
@@ -445,7 +522,7 @@ class UserPermissionsService extends BaseApplicationComponent
 		{
 			foreach ($this->getAllPermissions() as $categoryPermissions)
 			{
-				$this->_findSelectedPermissions($categoryPermissions, $postedPermissions, $filteredPermissions);
+				$this->_findSelectedPermissions($categoryPermissions, $postedPermissions, $groupPermissions, $filteredPermissions);
 			}
 		}
 
@@ -455,22 +532,29 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Iterates through a group of permissions, returning the ones that were selected.
 	 *
-	 * @access private
 	 * @param array $permissionsGroup
 	 * @param array $postedPermissions
+	 * @param array $groupPermissions
 	 * @param array &$filteredPermissions
+	 *
+	 * @return null
 	 */
-	private function _findSelectedPermissions($permissionsGroup, $postedPermissions, &$filteredPermissions)
+	private function _findSelectedPermissions($permissionsGroup, $postedPermissions, $groupPermissions, &$filteredPermissions)
 	{
 		foreach ($permissionsGroup as $name => $data)
 		{
-			if (in_array($name, $postedPermissions))
+			// Was this permission in the post data, or do they already have it via their group?
+			if (($inPostedPermissions = in_array($name, $postedPermissions)) || in_array(strtolower($name), $groupPermissions))
 			{
-				$filteredPermissions[] = $name;
+				// If it was in the post data, give it to them directly now
+				if ($inPostedPermissions)
+				{
+					$filteredPermissions[] = $name;
+				}
 
 				if (!empty($data['nested']))
 				{
-					$this->_findSelectedPermissions($data['nested'], $postedPermissions, $filteredPermissions);
+					$this->_findSelectedPermissions($data['nested'], $postedPermissions, $groupPermissions, $filteredPermissions);
 				}
 			}
 		}
@@ -479,14 +563,14 @@ class UserPermissionsService extends BaseApplicationComponent
 	/**
 	 * Returns a permission record based on its name. If a record doesn't exist, it will be created.
 	 *
-	 * @access private
 	 * @param string $permissionName
+	 *
 	 * @return UserPermissionRecord
 	 */
 	private function _getPermissionRecordByName($permissionName)
 	{
 		// Permission names are always stored in lowercase
-		$permissionName = StringHelper::toLowerCase($permissionName);
+		$permissionName = strtolower($permissionName);
 
 		$permissionRecord = UserPermissionRecord::model()->findByAttributes(array(
 			'name' => $permissionName

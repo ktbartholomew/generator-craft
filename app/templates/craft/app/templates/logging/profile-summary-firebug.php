@@ -1,10 +1,11 @@
 <script type="text/javascript">
 /*<![CDATA[*/
-if (typeof(console) == 'object')
+if (typeof(console) == 'object' && typeof console.groupCollapsed == 'function')
 {
 	console.groupCollapsed("Profiling Summary Report");
 	console.log("Time:   <?php echo sprintf('%0.5f', Craft\Craft::getLogger()->getExecutionTime()); ?>s\n");
 	console.log("Memory: <?php echo number_format(Craft\Craft::getLogger()->getMemoryUsage() / 1024); ?>Kb\n");
+	console.log("Total Queries: <?php echo is_array($data) ? count($data) : '0'; ?>\n");
 	console.log(" count   total   average    min      max   ");
 
 	<?php

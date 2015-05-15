@@ -2,30 +2,49 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * ElementsService provides APIs for managing elements.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * An instance of ElementsService is globally accessible in Craft via {@link WebApp::elements `craft()->elements`}.
+ *
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.services
+ * @since     1.0
  */
 class ElementsService extends BaseApplicationComponent
 {
+	// Properties
+	// =========================================================================
+
+	/**
+	 * @var array
+	 */
+	private $_placeholderElements;
+
+	// Public Methods
+	// =========================================================================
+
 	// Finding Elements
-	// ================
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns an element criteria model for a given element type.
 	 *
-	 * @param string $type
-	 * @param mixed $attributes
-	 * @return ElementCriteriaModel
+	 * This should be the starting point any time you want to fetch elements in Craft.
+	 *
+	 * ```php
+	 * $criteria = craft()->elements->getCriteria(ElementType::Entry);
+	 * $criteria->section = 'news';
+	 * $entries = $criteria->find();
+	 * ```
+	 *
+	 * @param string $type       The element type class handle (e.g. one of the values in the {@link ElementType} enum).
+	 * @param mixed  $attributes Any criteria attribute values that should be pre-populated on the criteria model.
+	 *
 	 * @throws Exception
+	 * @return ElementCriteriaModel An element criteria model, wired to fetch elements of the given $type.
 	 */
 	public function getCriteria($type, $attributes = null)
 	{
@@ -42,10 +61,17 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Returns an element by its ID.
 	 *
-	 * @param int $elementId
-	 * @param string|null $type
-	 * @param string|null $localeId
-	 * @return BaseElementModel|null
+	 * If no element type is provided, the method will first have to run a DB query to determine what type of element
+	 * the $elementId is, so you should definitely pass it if it’s known.
+	 *
+	 * The element’s status will not be a factor when usisng this method.
+	 *
+	 * @param int    $elementId   The element’s ID.
+	 * @param null   $elementType The element type’s class handle.
+	 * @param string $localeId    The locale to fetch the element in.
+	 *                            Defaults to {@link WebApp::language `craft()->language`}.
+	 *
+	 * @return BaseElementModel|null The matching element, or `null`.
 	 */
 	public function getElementById($elementId, $elementType = null, $localeId = null)
 	{
@@ -73,10 +99,71 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
+	 * Returns an element by its URI.
+	 *
+	 * @param string      $uri         The element’s URI.
+	 * @param string|null $localeId    The locale to look for the URI in, and to return the element in.
+	 *                                 Defaults to {@link WebApp::language `craft()->language`}.
+	 * @param bool        $enabledOnly Whether to only look for an enabled element. Defaults to `false`.
+	 *
+	 * @return BaseElementModel|null The matching element, or `null`.
+	 */
+	public function getElementByUri($uri, $localeId = null, $enabledOnly = false)
+	{
+		if ($uri === '')
+		{
+			$uri = '__home__';
+		}
+
+		if (!$localeId)
+		{
+			$localeId = craft()->language;
+		}
+
+		// First get the element ID and type
+
+		$conditions = array('and',
+			'elements_i18n.uri = :uri',
+			'elements_i18n.locale = :locale'
+		);
+
+		$params = array(
+			':uri'    => $uri,
+			':locale' => $localeId
+		);
+
+		if ($enabledOnly)
+		{
+			$conditions[] = 'elements_i18n.enabled = 1';
+			$conditions[] = 'elements.enabled = 1';
+			$conditions[] = 'elements.archived = 0';
+		}
+
+		$result = craft()->db->createCommand()
+			->select('elements.id, elements.type')
+			->from('elements elements')
+			->join('elements_i18n elements_i18n', 'elements_i18n.elementId = elements.id')
+			->where($conditions, $params)
+			->queryRow();
+
+		if ($result)
+		{
+			// Return the actual element
+			return $this->getElementById($result['id'], $result['type'], $localeId);
+		}
+	}
+
+	/**
 	 * Returns the element type(s) used by the element of a given ID(s).
 	 *
-	 * @param int|array $elementId
-	 * @return string|array|null
+	 * If a single ID is passed in (an int), then a single element type will be returned (a string), or `null` if
+	 * no element exists by that ID.
+	 *
+	 * If an array is passed in, then an array will be returned.
+	 *
+	 * @param int|array $elementId An element’s ID, or an array of elements’ IDs.
+	 *
+	 * @return string|array|null The element type(s).
 	 */
 	public function getElementTypeById($elementId)
 	{
@@ -101,9 +188,12 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Finds elements.
 	 *
-	 * @param mixed $criteria
-	 * @param bool $justIds
-	 * @return array
+	 * @param ElementCriteriaModel $criteria An element criteria model that defines the parameters for the elements
+	 *                                       we should be looking for.
+	 * @param bool                 $justIds  Whether the method should only return an array of the IDs of the matched
+	 *                                       elements. Defaults to `false`.
+	 *
+	 * @return array The matched elements, or their IDs, depending on $justIds.
 	 */
 	public function findElements($criteria = null, $justIds = false)
 	{
@@ -112,14 +202,6 @@ class ElementsService extends BaseApplicationComponent
 
 		if ($query)
 		{
-			if ($criteria->search)
-			{
-				$elementIds = $this->_getElementIdsFromQuery($query);
-				$scoredSearchResults = ($criteria->order == 'score');
-				$filteredElementIds = craft()->search->filterElementIdsByQuery($elementIds, $criteria->search, $scoredSearchResults);
-				$query->andWhere(array('in', 'elements.id', $filteredElementIds));
-			}
-
 			if ($justIds)
 			{
 				$query->select('elements.id');
@@ -138,26 +220,20 @@ class ElementsService extends BaseApplicationComponent
 			}
 			else if ($criteria->order && $criteria->order != 'score')
 			{
-				$orderColumns = ArrayHelper::stringToArray($criteria->order);
+				$order = $criteria->order;
 
-				if ($fieldColumns)
+				if (is_array($fieldColumns))
 				{
-					foreach ($orderColumns as $i => $orderColumn)
+					// Add the field column prefixes
+					foreach ($fieldColumns as $column)
 					{
-						// Is this column for a custom field?
-						foreach ($fieldColumns as $column)
-						{
-							if (preg_match('/^'.$column['handle'].'\b(.*)$/', $orderColumn, $matches))
-							{
-								// Use the field column name instead
-								$orderColumns[$i] = $column['column'].$matches[1];
-								// Don't break from the loop though because there could be more than one column that uses this handle!
-							}
-						}
+						// Avoid matching fields named "asc" or "desc" in the string "column_name asc" or
+						// "column_name desc"
+						$order = preg_replace('/(?<!\s)\b'.$column['handle'].'\b/', $column['column'].'$1', $order);
 					}
 				}
 
-				$query->order(implode(', ', $orderColumns));
+				$query->order($order);
 			}
 
 			if ($criteria->offset)
@@ -174,18 +250,6 @@ class ElementsService extends BaseApplicationComponent
 
 			if ($results)
 			{
-				if ($criteria->search && $scoredSearchResults)
-				{
-					$searchPositions = array();
-
-					foreach ($results as $result)
-					{
-						$searchPositions[] = array_search($result['id'], $filteredElementIds);
-					}
-
-					array_multisort($searchPositions, $results);
-				}
-
 				if ($justIds)
 				{
 					foreach ($results as $result)
@@ -195,53 +259,75 @@ class ElementsService extends BaseApplicationComponent
 				}
 				else
 				{
+					$locale = $criteria->locale;
 					$elementType = $criteria->getElementType();
 					$indexBy = $criteria->indexBy;
 					$lastElement = null;
 
 					foreach ($results as $result)
 					{
-						// Make a copy to pass to the onPopulateElement event
-						$originalResult = array_merge($result);
-
-						if ($contentTable)
+						// Do we have a placeholder for this elmeent?
+						if (isset($this->_placeholderElements[$result['id']][$locale]))
 						{
-							// Separate the content values from the main element attributes
-							$content = array(
-								'id'        => (isset($result['contentId']) ? $result['contentId'] : null),
-								'elementId' => $result['id'],
-								'locale'    => $criteria->locale,
-								'title'     => (isset($result['title']) ? $result['title'] : null)
-							);
+							$element = $this->_placeholderElements[$result['id']][$locale];
+						}
+						else
+						{
+							// Make a copy to pass to the onPopulateElement event
+							$originalResult = array_merge($result);
 
-							unset($result['title']);
-
-							if ($fieldColumns)
+							if ($contentTable)
 							{
-								foreach ($fieldColumns as $column)
+								// Separate the content values from the main element attributes
+								$content = array(
+									'id'        => (isset($result['contentId']) ? $result['contentId'] : null),
+									'elementId' => $result['id'],
+									'locale'    => $locale,
+									'title'     => (isset($result['title']) ? $result['title'] : null)
+								);
+
+								unset($result['title']);
+
+								if ($fieldColumns)
 								{
-									// Account for results where multiple fields have the same handle, but from different columns
-									// e.g. two Matrix block types that each have a field with the same handle
-
-									$colName = $column['column'];
-									$fieldHandle = $column['handle'];
-
-									if (!isset($content[$fieldHandle]) || (empty($content[$fieldHandle]) && !empty($result[$colName])))
+									foreach ($fieldColumns as $column)
 									{
-										$content[$fieldHandle] = $result[$colName];
-									}
+										// Account for results where multiple fields have the same handle, but from
+										// different columns e.g. two Matrix block types that each have a field with the
+										// same handle
 
-									unset($result[$colName]);
+										$colName = $column['column'];
+										$fieldHandle = $column['handle'];
+
+										if (!isset($content[$fieldHandle]) || (empty($content[$fieldHandle]) && !empty($result[$colName])))
+										{
+											$content[$fieldHandle] = $result[$colName];
+										}
+
+										unset($result[$colName]);
+									}
 								}
 							}
-						}
 
-						$result['locale'] = $criteria->locale;
-						$element = $elementType->populateElementModel($result);
+							$result['locale'] = $locale;
+							$element = $elementType->populateElementModel($result);
 
-						if ($contentTable)
-						{
-							$element->setContent($content);
+							// Was an element returned?
+							if (!$element || !($element instanceof BaseElementModel))
+							{
+								continue;
+							}
+
+							if ($contentTable)
+							{
+								$element->setContent($content);
+							}
+
+							// Fire an 'onPopulateElement' event
+							$this->onPopulateElement(new Event($this, array(
+								'element' => $element,
+								'result'  => $originalResult
+							)));
 						}
 
 						if ($indexBy)
@@ -264,12 +350,6 @@ class ElementsService extends BaseApplicationComponent
 						}
 
 						$lastElement = $element;
-
-						// Fire an 'onPopulateElement' event
-						$this->onPopulateElement(new Event($this, array(
-							'element' => $element,
-							'result'  => $originalResult
-						)));
 					}
 
 					$lastElement->setNext(false);
@@ -283,8 +363,10 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Returns the total number of elements that match a given criteria.
 	 *
-	 * @param mixed $criteria
-	 * @return int
+	 * @param ElementCriteriaModel $criteria An element criteria model that defines the parameters for the elements
+	 *                                       we should be counting.
+	 *
+	 * @return int The total number of elements that match the criteria.
 	 */
 	public function getTotalElements($criteria = null)
 	{
@@ -308,12 +390,20 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
-	 * Returns a DbCommand instance ready to search for elements based on a given element criteria.
+	 * Preps a {@link DbCommand} object for querying for elements, based on a given element criteria.
 	 *
-	 * @param mixed &$criteria
-	 * @param null  &$contentTable
-	 * @param null  &$fieldColumns
-	 * @return DbCommand|false
+	 * @param ElementCriteriaModel &$criteria     The element criteria model
+	 * @param string               &$contentTable The content table that should be joined in. (This variable will
+	 *                                            actually get defined by buildElementsQuery(), and is passed by
+	 *                                            reference so whatever’s calling the method will have access to its
+	 *                                            value.)
+	 * @param array                &$fieldColumns Info about the content field columns being selected. (This variable
+	 *                                            will actually get defined by buildElementsQuery(), and is passed by
+	 *                                            reference so whatever’s calling the method will have access to its
+	 *                                            value.)
+	 *
+	 * @return DbCommand|false The DbCommand object, or `false` if the method was able to determine ahead of time that
+	 *                         there’s no chance any elements are going to be found with the given parameters.
 	 */
 	public function buildElementsQuery(&$criteria = null, &$contentTable = null, &$fieldColumns = null)
 	{
@@ -336,6 +426,7 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		// Set up the query
+		// ---------------------------------------------------------------------
 
 		$query = craft()->db->createCommand()
 			->select('elements.id, elements.type, elements.enabled, elements.archived, elements.dateCreated, elements.dateUpdated, elements_i18n.slug, elements_i18n.uri, elements_i18n.enabled AS localeEnabled')
@@ -357,6 +448,7 @@ class ElementsService extends BaseApplicationComponent
 					$contentCols .= ', content.title';
 				}
 
+				// TODO: Replace this with a call to getFieldsForElementsQuery() in 3.0
 				$fieldColumns = $elementType->getContentFieldColumnsForElementsQuery($criteria);
 
 				foreach ($fieldColumns as $column)
@@ -371,8 +463,10 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		// Basic element params
+		// ---------------------------------------------------------------------
 
-		if ($criteria->id === false)
+		// If the 'id' parameter is set to any empty value besides `null`, don't return anything
+		if ($criteria->id !== null && empty($criteria->id))
 		{
 			return false;
 		}
@@ -453,7 +547,13 @@ class ElementsService extends BaseApplicationComponent
 			$query->andWhere(DbHelper::parseDateParam('elements.dateUpdated', $criteria->dateUpdated, $query->params));
 		}
 
+		if ($elementType->hasTitles() && $criteria->title)
+		{
+			$query->andWhere(DbHelper::parseParam('content.title', $criteria->title, $query->params));
+		}
+
 		// i18n params
+		// ---------------------------------------------------------------------
 
 		if ($criteria->slug)
 		{
@@ -471,6 +571,7 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		// Relational params
+		// ---------------------------------------------------------------------
 
 		// Convert the old childOf and parentOf params to the relatedTo param
 		// childOf(element)  => relatedTo({ source: element })
@@ -504,8 +605,8 @@ class ElementsService extends BaseApplicationComponent
 
 			$query->andWhere($relConditions);
 
-			// If there's only one relation criteria and it's specifically for grabbing target elements,
-			// allow the query to order by the relation sort order
+			// If there's only one relation criteria and it's specifically for grabbing target elements, allow the query
+			// to order by the relation sort order
 			if ($relationParamParser->isRelationFieldQuery())
 			{
 				$query->addSelect('sources1.sortOrder');
@@ -513,22 +614,55 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		// Give field types a chance to make changes
+		// ---------------------------------------------------------------------
 
-		foreach ($criteria->getSupportedFieldHandles() as $fieldHandle)
+		if ($elementType->hasContent() && $contentTable)
 		{
-			$field = craft()->fields->getFieldByHandle($fieldHandle);
-			$fieldType = $field->getFieldType();
+			$contentService = craft()->content;
+			$originalFieldColumnPrefix = $contentService->fieldColumnPrefix;
 
-			if ($fieldType)
+			// TODO: $fields should already be defined by now in Craft 3.0
+			$fields = $elementType->getFieldsForElementsQuery($criteria);
+			$extraCriteriaAttributes = $criteria->getExtraAttributeNames();
+
+			foreach ($fields as $field)
 			{
-				if ($fieldType->modifyElementsQuery($query, $criteria->$fieldHandle) === false)
+				$fieldType = $field->getFieldType();
+
+				if ($fieldType)
 				{
-					return false;
+					// Was this field's parameter set on the criteria model?
+					if (in_array($field->handle, $extraCriteriaAttributes))
+					{
+						$fieldCriteria = $criteria->{$field->handle};
+					}
+					else
+					{
+						$fieldCriteria = null;
+					}
+
+					// Set the field's column prefix on ContentService
+					if ($field->columnPrefix)
+					{
+						$contentService->fieldColumnPrefix = $field->columnPrefix;
+					}
+
+					$fieldTypeResponse = $fieldType->modifyElementsQuery($query, $fieldCriteria);
+
+					// Set it back
+					$contentService->fieldColumnPrefix = $originalFieldColumnPrefix;
+
+					// Need to bail early?
+					if ($fieldTypeResponse === false)
+					{
+						return false;
+					}
 				}
 			}
 		}
 
 		// Give the element type a chance to make changes
+		// ---------------------------------------------------------------------
 
 		if ($elementType->modifyElementsQuery($query, $criteria) === false)
 		{
@@ -536,6 +670,7 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		// Structure params
+		// ---------------------------------------------------------------------
 
 		if ($query->isJoined('structureelements'))
 		{
@@ -545,7 +680,12 @@ class ElementsService extends BaseApplicationComponent
 			{
 				if (!$criteria->ancestorOf instanceof BaseElementModel)
 				{
-					$criteria->ancestorOf = craft()->elements->getElementById($criteria->ancestorOf, $elementType->getClassHandle());
+					$criteria->ancestorOf = craft()->elements->getElementById($criteria->ancestorOf, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->ancestorOf)
+					{
+						return false;
+					}
 				}
 
 				if ($criteria->ancestorOf)
@@ -576,7 +716,12 @@ class ElementsService extends BaseApplicationComponent
 			{
 				if (!$criteria->descendantOf instanceof BaseElementModel)
 				{
-					$criteria->descendantOf = craft()->elements->getElementById($criteria->descendantOf, $elementType->getClassHandle());
+					$criteria->descendantOf = craft()->elements->getElementById($criteria->descendantOf, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->descendantOf)
+					{
+						return false;
+					}
 				}
 
 				if ($criteria->descendantOf)
@@ -607,7 +752,12 @@ class ElementsService extends BaseApplicationComponent
 			{
 				if (!$criteria->siblingOf instanceof BaseElementModel)
 				{
-					$criteria->siblingOf = craft()->elements->getElementById($criteria->siblingOf, $elementType->getClassHandle());
+					$criteria->siblingOf = craft()->elements->getElementById($criteria->siblingOf, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->siblingOf)
+					{
+						return false;
+					}
 				}
 
 				if ($criteria->siblingOf)
@@ -654,7 +804,12 @@ class ElementsService extends BaseApplicationComponent
 			{
 				if (!$criteria->prevSiblingOf instanceof BaseElementModel)
 				{
-					$criteria->prevSiblingOf = craft()->elements->getElementById($criteria->prevSiblingOf, $elementType->getClassHandle());
+					$criteria->prevSiblingOf = craft()->elements->getElementById($criteria->prevSiblingOf, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->prevSiblingOf)
+					{
+						return false;
+					}
 				}
 
 				if ($criteria->prevSiblingOf)
@@ -678,7 +833,12 @@ class ElementsService extends BaseApplicationComponent
 			{
 				if (!$criteria->nextSiblingOf instanceof BaseElementModel)
 				{
-					$criteria->nextSiblingOf = craft()->elements->getElementById($criteria->nextSiblingOf, $elementType->getClassHandle());
+					$criteria->nextSiblingOf = craft()->elements->getElementById($criteria->nextSiblingOf, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->nextSiblingOf)
+					{
+						return false;
+					}
 				}
 
 				if ($criteria->nextSiblingOf)
@@ -698,6 +858,60 @@ class ElementsService extends BaseApplicationComponent
 				}
 			}
 
+			if ($criteria->positionedBefore)
+			{
+				if (!$criteria->positionedBefore instanceof BaseElementModel)
+				{
+					$criteria->positionedBefore = craft()->elements->getElementById($criteria->positionedBefore, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->positionedBefore)
+					{
+						return false;
+					}
+				}
+
+				if ($criteria->positionedBefore)
+				{
+					$query->andWhere(
+						array('and',
+							'structureelements.rgt < :positionedBefore_rgt',
+							'structureelements.root = :positionedBefore_root'
+						),
+						array(
+							':positionedBefore_rgt'   => $criteria->positionedBefore->lft,
+							':positionedBefore_root'  => $criteria->positionedBefore->root
+						)
+					);
+				}
+			}
+
+			if ($criteria->positionedAfter)
+			{
+				if (!$criteria->positionedAfter instanceof BaseElementModel)
+				{
+					$criteria->positionedAfter = craft()->elements->getElementById($criteria->positionedAfter, $elementType->getClassHandle(), $criteria->locale);
+
+					if (!$criteria->positionedAfter)
+					{
+						return false;
+					}
+				}
+
+				if ($criteria->positionedAfter)
+				{
+					$query->andWhere(
+						array('and',
+							'structureelements.lft > :positionedAfter_lft',
+							'structureelements.root = :positionedAfter_root'
+						),
+						array(
+							':positionedAfter_lft'   => $criteria->positionedAfter->rgt,
+							':positionedAfter_root'  => $criteria->positionedAfter->root
+						)
+					);
+				}
+			}
+
 			if ($criteria->level || $criteria->depth)
 			{
 				// TODO: 'depth' is deprecated; use 'level' instead.
@@ -706,15 +920,40 @@ class ElementsService extends BaseApplicationComponent
 			}
 		}
 
+		// Search
+		// ---------------------------------------------------------------------
+
+		if ($criteria->search)
+		{
+			$elementIds = $this->_getElementIdsFromQuery($query);
+			$scoredSearchResults = ($criteria->order == 'score');
+			$filteredElementIds = craft()->search->filterElementIdsByQuery($elementIds, $criteria->search, $scoredSearchResults);
+
+			// No results?
+			if (!$filteredElementIds)
+			{
+				return array();
+			}
+
+			$query->andWhere(array('in', 'elements.id', $filteredElementIds));
+
+			if ($scoredSearchResults)
+			{
+				// Order the elements in the exact order that SearchService returned them in
+				$query->order(craft()->db->getSchema()->orderByColumnValues('elements.id', $filteredElementIds));
+			}
+		}
+
 		return $query;
 	}
 
 	/**
-	 * Returns an element's URI for a given locale.
+	 * Returns an element’s URI for a given locale.
 	 *
-	 * @param int $elementId
-	 * @param string $localeId
-	 * @return string
+	 * @param int    $elementId The element’s ID.
+	 * @param string $localeId  The locale to search for the element’s URI in.
+	 *
+	 * @return string|null The element’s URI, or `null`.
 	 */
 	public function getElementUriForLocale($elementId, $localeId)
 	{
@@ -728,8 +967,10 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Returns the locales that a given element is enabled in.
 	 *
-	 * @param int $elementId
-	 * @return array
+	 * @param int $elementId The element’s ID.
+	 *
+	 * @return array The locales that the element is enabled in. If the element could not be found, an empty array
+	 *               will be returned.
 	 */
 	public function getEnabledLocalesForElement($elementId)
 	{
@@ -741,15 +982,36 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	// Saving Elements
-	// ===============
+	// -------------------------------------------------------------------------
 
 	/**
-	 * Saves an element.
+	 * Handles all of the routine tasks that go along with saving elements.
+	 *
+	 * Those tasks include:
+	 *
+	 * - Validating its content (if $validateContent is `true`, or it’s left as `null` and the element is enabled)
+	 * - Ensuring the element has a title if its type {@link BaseElementType::hasTitles() has titles}, and giving it a
+	 *   default title in the event that $validateContent is set to `false`
+	 * - Saving a row in the `elements` table
+	 * - Assigning the element’s ID on the element model, if it’s a new element
+	 * - Assigning the element’s ID on the element’s content model, if there is one and it’s a new set of content
+	 * - Updating the search index with new keywords from the element’s content
+	 * - Setting a unique URI on the element, if it’s supposed to have one.
+	 * - Saving the element’s row(s) in the `elements_i18n` and `content` tables
+	 * - Deleting any rows in the `elements_i18n` and `content` tables that no longer need to be there
+	 * - Calling the field types’ {@link BaseFieldType::onAfterElementSave() onAfterElementSave()} methods
+	 * - Cleaing any template caches that the element was involved in
+	 *
+	 * This method should be called by a service’s “saveX()” method, _after_ it is done validating any attributes on
+	 * the element that are of particular concern to its element type. For example, if the element were an entry,
+	 * saveElement() should be called only after the entry’s sectionId and typeId attributes had been validated to
+	 * ensure that they point to valid section and entry type IDs.
 	 *
 	 * @param BaseElementModel $element         The element that is being saved
-	 * @param bool|null        $validateContent Whether the element's content should be validated. If left 'null', it will depend on whether the element is enabled or not.
-	 * @throws Exception
-	 * @throws \Exception
+	 * @param bool|null        $validateContent Whether the element's content should be validated. If left 'null', it
+	 *                                          will depend on whether the element is enabled or not.
+	 *
+	 * @throws Exception|\Exception
 	 * @return bool
 	 */
 	public function saveElement(BaseElementModel $element, $validateContent = null)
@@ -806,7 +1068,7 @@ class ElementsService extends BaseApplicationComponent
 
 			if (!$elementRecord)
 			{
-				throw new Exception(Craft::t('No element exists with the ID “{id}”', array('id' => $element->id)));
+				throw new Exception(Craft::t('No element exists with the ID “{id}”.', array('id' => $element->id)));
 			}
 		}
 		else
@@ -820,257 +1082,257 @@ class ElementsService extends BaseApplicationComponent
 		$elementRecord->archived = (bool) $element->archived;
 
 		$transaction = craft()->db->getCurrentTransaction() === null ? craft()->db->beginTransaction() : null;
+
 		try
 		{
-			// Save the element record first
-			$success = $elementRecord->save(false);
+			// Fire an 'onBeforeSaveElement' event
+			$event = new Event($this, array(
+				'element'      => $element,
+				'isNewElement' => $isNewElement
+			));
 
-			if ($success)
+			$this->onBeforeSaveElement($event);
+
+			// Is the event giving us the go-ahead?
+			if ($event->performAction)
 			{
-				if ($isNewElement)
-				{
-					// Save the element id on the element model, in case {id} is in the URL format
-					$element->id = $elementRecord->id;
-
-					if ($elementType->hasContent())
-					{
-						$element->getContent()->elementId = $element->id;
-					}
-				}
-
-				// Save the content
-				if ($elementType->hasContent())
-				{
-					craft()->content->saveContent($element, false, (bool) $element->id);
-				}
-
-				// Update the search index
-				craft()->search->indexElementAttributes($element);
-
-				// Update the locale records and content
-
-				// We're saving all of the element's locales here to ensure that they all exist
-				// and to update the URI in the event that the URL format includes some value that just changed
-
-				$localeRecords = array();
-
-				if (!$isNewElement)
-				{
-					$existingLocaleRecords = ElementLocaleRecord::model()->findAllByAttributes(array(
-						'elementId' => $element->id
-					));
-
-					foreach ($existingLocaleRecords as $record)
-					{
-						$localeRecords[$record->locale] = $record;
-					}
-				}
-
-				$mainLocaleId = $element->locale;
-				$mainSlug     = $element->slug;
-				$mainUri      = $element->uri;
-
-				if ($elementType->hasContent())
-				{
-					$mainContent = $element->getContent();
-				}
-
-				$locales = $element->getLocales();
-				$localeIds = array();
-
-				if (!$locales)
-				{
-					throw new Exception('All elements must have at least one locale associated with them.');
-				}
-
-				foreach ($locales as $localeId => $localeInfo)
-				{
-					if (is_numeric($localeId) && is_string($localeInfo))
-					{
-						$localeId = $localeInfo;
-						$localeInfo = array();
-					}
-
-					$localeIds[] = $localeId;
-
-					if (!isset($localeInfo['enabledByDefault']))
-					{
-						$localeInfo['enabledByDefault'] = true;
-					}
-
-					if (isset($localeRecords[$localeId]))
-					{
-						$localeRecord = $localeRecords[$localeId];
-					}
-					else
-					{
-						$localeRecord = new ElementLocaleRecord();
-
-						$localeRecord->elementId = $element->id;
-						$localeRecord->locale    = $localeId;
-						$localeRecord->enabled   = $localeInfo['enabledByDefault'];
-					}
-
-					// Set the locale and its content on the element
-					$element->locale = $localeId;
-
-					if ($localeRecord->id && $localeRecord->locale != $mainLocaleId)
-					{
-						// Keep the original slug
-						$element->slug = $localeRecord->slug;
-					}
-					else
-					{
-						$element->slug = $mainSlug;
-					}
-
-					if ($elementType->hasContent())
-					{
-						if ($localeId == $mainLocaleId)
-						{
-							$content = $mainContent;
-						}
-						else
-						{
-							$content = null;
-
-							if (!$isNewElement)
-							{
-								// Do we already have a content row for this locale?
-								$content = craft()->content->getContent($element);
-							}
-
-							if (!$content)
-							{
-								$content = craft()->content->createContent($element);
-								$content->setAttributes($mainContent->getAttributes());
-								$content->id = null;
-								$content->locale = $localeId;
-							}
-						}
-
-						$element->setContent($content);
-
-						if (!$content->id)
-						{
-							craft()->content->saveContent($element, false, false);
-						}
-					}
-
-					// Set a valid/unique slug and URI
-					ElementHelper::setValidSlug($element);
-					ElementHelper::setUniqueUri($element);
-
-					$localeRecord->slug = $element->slug;
-					$localeRecord->uri  = $element->uri;
-
-					if ($localeId == $mainLocaleId)
-					{
-						$localeRecord->enabled = (bool) $element->localeEnabled;
-					}
-
-					$success = $localeRecord->save();
-
-					if (!$success)
-					{
-						// Pass any validation errors on to the element
-						$element->addErrors($localeRecord->getErrors());
-
-						// Don't bother with any of the other locales
-						break;
-					}
-
-					if ($localeId == $mainLocaleId)
-					{
-						// Remember the saved slug and URI
-						$mainSlug = $element->slug;
-						$mainUri  = $element->uri;
-					}
-				}
-
-				// Bring everything back to this locale
-				$element->locale = $mainLocaleId;
-				$element->slug   = $mainSlug;
-				$element->uri    = $mainUri;
-
-				if ($elementType->hasContent())
-				{
-					$element->setContent($mainContent);
-				}
+				// Save the element record first
+				$success = $elementRecord->save(false);
 
 				if ($success)
 				{
-					if (!$isNewElement)
+					if ($isNewElement)
 					{
-						// Delete the rows that don't need to be there anymore
-
-						craft()->db->createCommand()->delete('elements_i18n', array('and',
-							'elementId = :elementId',
-							array('not in', 'locale', $localeIds)
-						), array(
-							':elementId' => $element->id
-						));
+						// Save the element id on the element model, in case {id} is in the URL format
+						$element->id = $elementRecord->id;
 
 						if ($elementType->hasContent())
 						{
-							craft()->db->createCommand()->delete($element->getContentTable(), array('and',
+							$element->getContent()->elementId = $element->id;
+						}
+					}
+
+					// Save the content
+					if ($elementType->hasContent())
+					{
+						craft()->content->saveContent($element, false, (bool)$element->id);
+					}
+
+					// Update the search index
+					craft()->search->indexElementAttributes($element);
+
+					// Update the locale records and content
+
+					// We're saving all of the element's locales here to ensure that they all exist and to update the URI in
+					// the event that the URL format includes some value that just changed
+
+					$localeRecords = array();
+
+					if (!$isNewElement)
+					{
+						$existingLocaleRecords = ElementLocaleRecord::model()->findAllByAttributes(array(
+							'elementId' => $element->id
+						));
+
+						foreach ($existingLocaleRecords as $record)
+						{
+							$localeRecords[$record->locale] = $record;
+						}
+					}
+
+					$mainLocaleId = $element->locale;
+
+					$locales = $element->getLocales();
+					$localeIds = array();
+
+					if (!$locales)
+					{
+						throw new Exception('All elements must have at least one locale associated with them.');
+					}
+
+					foreach ($locales as $localeId => $localeInfo)
+					{
+						if (is_numeric($localeId) && is_string($localeInfo))
+						{
+							$localeId = $localeInfo;
+							$localeInfo = array();
+						}
+
+						$localeIds[] = $localeId;
+
+						if (!isset($localeInfo['enabledByDefault']))
+						{
+							$localeInfo['enabledByDefault'] = true;
+						}
+
+						if (isset($localeRecords[$localeId]))
+						{
+							$localeRecord = $localeRecords[$localeId];
+						}
+						else
+						{
+							$localeRecord = new ElementLocaleRecord();
+
+							$localeRecord->elementId = $element->id;
+							$localeRecord->locale = $localeId;
+							$localeRecord->enabled = $localeInfo['enabledByDefault'];
+						}
+
+						// Is this the main locale?
+						$isMainLocale = ($localeId == $mainLocaleId);
+
+						if ($isMainLocale)
+						{
+							$localizedElement = $element;
+						}
+						else
+						{
+							// Copy the element for this locale
+							$localizedElement = $element->copy();
+							$localizedElement->locale = $localeId;
+
+							if ($localeRecord->id)
+							{
+								// Keep the original slug
+								$localizedElement->slug = $localeRecord->slug;
+							}
+							else
+							{
+								// Default to the main locale's slug
+								$localizedElement->slug = $element->slug;
+							}
+						}
+
+						if ($elementType->hasContent())
+						{
+							if (!$isMainLocale)
+							{
+								$content = null;
+
+								if (!$isNewElement)
+								{
+									// Do we already have a content row for this locale?
+									$content = craft()->content->getContent($localizedElement);
+								}
+
+								if (!$content)
+								{
+									$content = craft()->content->createContent($localizedElement);
+									$content->setAttributes($element->getContent()->getAttributes());
+									$content->id = null;
+									$content->locale = $localeId;
+								}
+
+								$localizedElement->setContent($content);
+							}
+
+							if (!$localizedElement->getContent()->id)
+							{
+								craft()->content->saveContent($localizedElement, false, false);
+							}
+						}
+
+						// Capture the original slug, in case it's entirely composed of invalid characters
+						$originalSlug = $localizedElement->slug;
+
+						// Clean up the slug
+						ElementHelper::setValidSlug($localizedElement);
+
+						// If the slug was entirely composed of invalid characters, it will be blank now.
+						if ($originalSlug && !$localizedElement->slug)
+						{
+							$localizedElement->slug = $originalSlug;
+							$element->addError('slug', Craft::t('{attribute} is invalid.', array('attribute' => Craft::t('Slug'))));
+
+							// Don't bother with any of the other locales
+							$success = false;
+							break;
+						}
+
+						ElementHelper::setUniqueUri($localizedElement);
+
+						$localeRecord->slug = $localizedElement->slug;
+						$localeRecord->uri = $localizedElement->uri;
+
+						if ($isMainLocale)
+						{
+							$localeRecord->enabled = (bool)$element->localeEnabled;
+						}
+
+						$success = $localeRecord->save();
+
+						if (!$success)
+						{
+							// Pass any validation errors on to the element
+							$element->addErrors($localeRecord->getErrors());
+
+							// Don't bother with any of the other locales
+							break;
+						}
+					}
+
+					if ($success)
+					{
+						if (!$isNewElement)
+						{
+							// Delete the rows that don't need to be there anymore
+
+							craft()->db->createCommand()->delete('elements_i18n', array('and',
 								'elementId = :elementId',
 								array('not in', 'locale', $localeIds)
 							), array(
 								':elementId' => $element->id
 							));
-						}
-					}
 
-					// Call the field types' onAfterElementSave() methods
-					$fieldLayout = $element->getFieldLayout();
-
-					if ($fieldLayout)
-					{
-						foreach ($fieldLayout->getFields() as $fieldLayoutField)
-						{
-							$field = $fieldLayoutField->getField();
-
-							if ($field)
+							if ($elementType->hasContent())
 							{
-								$fieldType = $field->getFieldType();
+								craft()->db->createCommand()->delete($element->getContentTable(), array('and',
+									'elementId = :elementId',
+									array('not in', 'locale', $localeIds)
+								), array(
+									':elementId' => $element->id
+								));
+							}
+						}
 
-								if ($fieldType)
+						// Call the field types' onAfterElementSave() methods
+						$fieldLayout = $element->getFieldLayout();
+
+						if ($fieldLayout)
+						{
+							foreach ($fieldLayout->getFields() as $fieldLayoutField)
+							{
+								$field = $fieldLayoutField->getField();
+
+								if ($field)
 								{
-									$fieldType->element = $element;
-									$fieldType->onAfterElementSave();
+									$fieldType = $field->getFieldType();
+
+									if ($fieldType)
+									{
+										$fieldType->element = $element;
+										$fieldType->onAfterElementSave();
+									}
 								}
 							}
 						}
-					}
 
-					// Finally, delete any caches involving this element
-					// (Even do this for new elements, since they might pop up in a cached criteria.)
-					craft()->templateCache->deleteCachesByElement($element);
+						// Finally, delete any caches involving this element. (Even do this for new elements, since they
+						// might pop up in a cached criteria.)
+						craft()->templateCache->deleteCachesByElement($element);
+					}
 				}
 			}
+			else
+			{
+				$success = false;
+			}
 
+			// Commit the transaction regardless of whether we saved the user, in case something changed
+			// in onBeforeSaveElement
 			if ($transaction !== null)
 			{
-				if ($success)
-				{
-					$transaction->commit();
-				}
-				else
-				{
-					$transaction->rollback();
-				}
-			}
-
-			if (!$success && $isNewElement)
-			{
-				$element->id = null;
-
-				if ($elementType->hasContent())
-				{
-					$element->getContent()->id = null;
-					$element->getContent()->elementId = null;
-				}
+				$transaction->commit();
 			}
 		}
 		catch (\Exception $e)
@@ -1083,15 +1345,39 @@ class ElementsService extends BaseApplicationComponent
 			throw $e;
 		}
 
+		if ($success)
+		{
+			// Fire an 'onSaveElement' event
+			$this->onSaveElement(new Event($this, array(
+				'element'      => $element,
+				'isNewElement' => $isNewElement
+			)));
+		}
+		else
+		{
+			if ($isNewElement)
+			{
+				$element->id = null;
+
+				if ($elementType->hasContent())
+				{
+					$element->getContent()->id = null;
+					$element->getContent()->elementId = null;
+				}
+			}
+		}
+
 		return $success;
 	}
 
 	/**
-	 * Updates an element's slug and URI, along with any descendants.
+	 * Updates an element’s slug and URI, along with any descendants.
 	 *
-	 * @param BaseElementModel $element
-	 * @param bool $updateOtherLocales
-	 * @param bool $updateDescendants
+	 * @param BaseElementModel $element            The element to update.
+	 * @param bool             $updateOtherLocales Whether the element’s other locales should also be updated.
+	 * @param bool             $updateDescendants  Whether the element’s descendants should also be updated.
+	 *
+	 * @return null
 	 */
 	public function updateElementSlugAndUri(BaseElementModel $element, $updateOtherLocales = true, $updateDescendants = true)
 	{
@@ -1120,9 +1406,11 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
-	 * Updates an element's slug and URI, for any locales besides the given one.
+	 * Updates an element’s slug and URI, for any locales besides the given one.
 	 *
-	 * @param BaseElementModel $element
+	 * @param BaseElementModel $element The element to update.
+	 *
+	 * @return null
 	 */
 	public function updateElementSlugAndUriInOtherLocales(BaseElementModel $element)
 	{
@@ -1143,9 +1431,11 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
-	 * Updates an element's descendants' slugs and URIs.
+	 * Updates an element’s descendants’ slugs and URIs.
 	 *
-	 * @param BaseElementModel $element
+	 * @param BaseElementModel $element The element whose descendants should be updated.
+	 *
+	 * @return null
 	 */
 	public function updateDescendantSlugsAndUris(BaseElementModel $element)
 	{
@@ -1154,6 +1444,7 @@ class ElementsService extends BaseApplicationComponent
 		$criteria->descendantDist = 1;
 		$criteria->status = null;
 		$criteria->localeEnabled = null;
+		$criteria->locale = $element->locale;
 		$children = $criteria->find();
 
 		foreach ($children as $child)
@@ -1165,9 +1456,17 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Merges two elements together.
 	 *
-	 * @param int $mergedElementId
-	 * @param int $prevailingElementId
-	 * @return bool
+	 * This method will update the following:
+	 *
+	 * - Any relations involving the merged element
+	 * - Any structures that contain the merged element
+	 * - Any reference tags in textual custom fields referencing the merged element
+	 *
+	 * @param int $mergedElementId     The ID of the element that is going away.
+	 * @param int $prevailingElementId The ID of the element that is sticking around.
+	 *
+	 * @throws \Exception
+	 * @return bool Whether the elements were merged successfully.
 	 */
 	public function mergeElementsByIds($mergedElementId, $prevailingElementId)
 	{
@@ -1280,8 +1579,10 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Deletes an element(s) by its ID(s).
 	 *
-	 * @param int|array $elementIds
-	 * @return bool
+	 * @param int|array $elementIds The element’s ID, or an array of elements’ IDs.
+	 *
+	 * @throws \Exception
+	 * @return bool Whether the element(s) were deleted successfully.
 	 */
 	public function deleteElementById($elementIds)
 	{
@@ -1296,10 +1597,16 @@ class ElementsService extends BaseApplicationComponent
 		}
 
 		$transaction = craft()->db->getCurrentTransaction() === null ? craft()->db->beginTransaction() : null;
+
 		try
 		{
-			// First delete any structure nodes with these elements, so NestedSetBehavior can do its thing.
-			// We need to go one-by-one in case one of theme deletes the record of another in the process.
+			// Fire an 'onBeforeDeleteElements' event
+			$this->onBeforeDeleteElements(new Event($this, array(
+				'elementIds' => $elementIds
+			)));
+
+			// First delete any structure nodes with these elements, so NestedSetBehavior can do its thing. We need to
+			// go one-by-one in case one of theme deletes the record of another in the process.
 			foreach ($elementIds as $elementId)
 			{
 				$records = StructureElementRecord::model()->findAllByAttributes(array(
@@ -1308,24 +1615,54 @@ class ElementsService extends BaseApplicationComponent
 
 				foreach ($records as $record)
 				{
+					// If this element still has any children, move them up before the one getting deleted.
+					$children = $record->children()->findAll();
+
+					foreach ($children as $child)
+					{
+						$child->moveBefore($record);
+					}
+
+					// Delete this element's node
 					$record->deleteNode();
 				}
-
-				// Also delete any caches involving this element
-				craft()->templateCache->deleteCachesByElementId($elementId);
 			}
+
+			// Delete the caches before they drop their elementId relations (passing `false` because there's no chance
+			// this element is suddenly going to show up in a new query)
+			craft()->templateCache->deleteCachesByElementId($elementIds, false);
 
 			// Now delete the rows in the elements table
 			if (count($elementIds) == 1)
 			{
 				$condition = array('id' => $elementIds[0]);
+				$matrixBlockCondition = array('ownerId' => $elementIds[0]);
+				$searchIndexCondition = array('elementId' => $elementIds[0]);
 			}
 			else
 			{
 				$condition = array('in', 'id', $elementIds);
+				$matrixBlockCondition = array('in', 'ownerId', $elementIds);
+				$searchIndexCondition = array('in', 'elementId', $elementIds);
 			}
 
+			// First delete any Matrix blocks that belong to this element(s)
+			$matrixBlockIds = craft()->db->createCommand()
+				->select('id')
+				->from('matrixblocks')
+				->where($matrixBlockCondition)
+				->queryColumn();
+
+			if ($matrixBlockIds)
+			{
+				craft()->matrix->deleteBlockById($matrixBlockIds);
+			}
+
+			// Delete the elements table rows, which will cascade across all other InnoDB tables
 			$affectedRows = craft()->db->createCommand()->delete('elements', $condition);
+
+			// The searchindex table is MyISAM, though
+			craft()->db->createCommand()->delete('searchindex', $searchIndexCondition);
 
 			if ($transaction !== null)
 			{
@@ -1348,8 +1685,9 @@ class ElementsService extends BaseApplicationComponent
 	/**
 	 * Deletes elements by a given type.
 	 *
-	 * @param string $type
-	 * @return bool
+	 * @param string $type The element type class handle.
+	 *
+	 * @return bool Whether the elements were deleted successfully.
 	 */
 	public function deleteElementsByType($type)
 	{
@@ -1370,12 +1708,12 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	// Element types
-	// =============
+	// -------------------------------------------------------------------------
 
 	/**
 	 * Returns all installed element types.
 	 *
-	 * @return array
+	 * @return IElementType[] The installed element types.
 	 */
 	public function getAllElementTypes()
 	{
@@ -1383,24 +1721,51 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
-	 * Returns an element type.
+	 * Returns an element type by its class handle.
 	 *
-	 * @param string $class
-	 * @return BaseElementType|null
+	 * @param string $class The element type class handle.
+	 *
+	 * @return IElementType|null The element type, or `null`.
 	 */
 	public function getElementType($class)
 	{
 		return craft()->components->getComponentByTypeAndClass(ComponentType::Element, $class);
 	}
 
-	// Misc
-	// ====
+	// Element Actions
+	// -------------------------------------------------------------------------
 
 	/**
-	 * Parses a string for element reference tags.
+	 * Returns all installed element actions.
 	 *
-	 * @param string $str
-	 * @return string|array
+	 * @return IElementAction[] The installed element actions.
+	 */
+	public function getAllActions()
+	{
+		return craft()->components->getComponentsByType(ComponentType::ElementAction);
+	}
+
+	/**
+	 * Returns an element action by its class handle.
+	 *
+	 * @param string $class The element action class handle.
+	 *
+	 * @return IElementType|null The element action, or `null`.
+	 */
+	public function getAction($class)
+	{
+		return craft()->components->getComponentByTypeAndClass(ComponentType::ElementAction, $class);
+	}
+
+	// Misc
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Parses a string for element [reference tags](http://buildwithcraft.com/docs/reference-tags).
+	 *
+	 * @param string $str The string to parse.
+	 *
+	 * @return string The parsed string.
 	 */
 	public function parseRefs($str)
 	{
@@ -1467,6 +1832,7 @@ class ElementsService extends BaseApplicationComponent
 							if ($refTagsByThing)
 							{
 								$criteria = craft()->elements->getCriteria($elementTypeHandle);
+								$criteria->status = null;
 								$criteria->$thing = array_keys($refTagsByThing);
 								$elements = $criteria->find();
 
@@ -1526,9 +1892,35 @@ class ElementsService extends BaseApplicationComponent
 	}
 
 	/**
+	 * Stores a placeholder element that {@link findElements()} should use instead of populating a new element with a
+	 * matching ID and locale.
+	 *
+	 * This is used by Live Preview and Sharing features.
+	 *
+	 * @param BaseElementModel $element The element currently being edited by Live Preview.
+	 *
+	 * @return null
+	 */
+	public function setPlaceholderElement(BaseElementModel $element)
+	{
+		// Won't be able to do anything with this if it doesn't have an ID or locale
+		if (!$element->id || !$element->locale)
+		{
+			return;
+		}
+
+		$this->_placeholderElements[$element->id][$element->locale] = $element;
+	}
+
+	// Events
+	// -------------------------------------------------------------------------
+
+	/**
 	 * Fires an 'onPopulateElement' event.
 	 *
 	 * @param Event $event
+	 *
+	 * @return null
 	 */
 	public function onPopulateElement(Event $event)
 	{
@@ -1539,19 +1931,58 @@ class ElementsService extends BaseApplicationComponent
 	 * Fires an 'onMergeElements' event.
 	 *
 	 * @param Event $event
+	 *
+	 * @return null
 	 */
 	public function onMergeElements(Event $event)
 	{
 		$this->raiseEvent('onMergeElements', $event);
 	}
 
-	// Private functions
-	// =================
+	/**
+	 * Fires an 'onBeforeDeleteElements' event.
+	 *
+	 * @param Event $event
+	 *
+	 * @return null
+	 */
+	public function onBeforeDeleteElements(Event $event)
+	{
+		$this->raiseEvent('onBeforeDeleteElements', $event);
+	}
+
+	/**
+	 * Fires an 'onBeforeSaveElement' event.
+	 *
+	 * @param Event $event
+	 *
+	 * @return null
+	 */
+	public function onBeforeSaveElement(Event $event)
+	{
+		$this->raiseEvent('onBeforeSaveElement', $event);
+	}
+
+	/**
+	 * Fires an 'onSaveElement' event.
+	 *
+	 * @param Event $event
+	 *
+	 * @return null
+	 */
+	public function onSaveElement(Event $event)
+	{
+		$this->raiseEvent('onSaveElement', $event);
+	}
+
+	// Private Methods
+	// =========================================================================
 
 	/**
 	 * Returns the unique element IDs that match a given element query.
 	 *
 	 * @param DbCommand $query
+	 *
 	 * @return array
 	 */
 	private function _getElementIdsFromQuery(DbCommand $query)

@@ -39,12 +39,12 @@
 						{% if craft.isLocalized() %}
 							<th class="thin nowrap">{{ locale.id }}</th>
 						{% endif %}
-						<td>
+						<td class="topalign">
 							{% set value = ((section.type == sectionType or sectionType != 'single') and section.locales[locale.id] is defined ? section.locales[locale.id].urlFormat : null) %}
 							{{ _self.urlFormatText(sectionType, locale, section, 'urlFormat', value) }}
 						</td>
 						{% if sectionType == 'structure' %}
-							<td>
+							<td class="topalign">
 								{% set value = ((section.type == 'structure') and section.locales[locale.id] is defined ? section.locales[locale.id].nestedUrlFormat : '{parent.uri}/{slug}') %}
 								{{ _self.urlFormatText(sectionType, locale, section, 'nestedUrlFormat', value) }}
 							</td>
@@ -89,9 +89,11 @@
 {% from _self import urlFormatInput, hasUrlsField, templateField %}
 
 {% set content %}
-	<form method="post" accept-charset="UTF-8" data-saveshortcut="1">
+	<form method="post" accept-charset="UTF-8" data-saveshortcut>
 		<input type="hidden" name="action" value="sections/saveSection">
 		<input type="hidden" name="redirect" value="settings/sections">
+		{{ getCsrfInput() }}
+
 		{% if section.id %}<input type="hidden" name="sectionId" value="{{ section.id }}">{% endif %}
 
 		{{ forms.textField({
@@ -146,7 +148,8 @@
 									<div class="for-locale-{{ locale.id }}{% if not localeSelected %} hidden{% endif %}">
 										{{ forms.lightswitch({
 											name: 'defaultLocaleStatuses['~locale.id~']',
-											on:   (brandNewSection or not section.locales[locale.id] is defined or section.locales[locale.id].enabledByDefault)
+											on:   (brandNewSection or not section.locales[locale.id] is defined or section.locales[locale.id].enabledByDefault),
+											small: true
 										}) }}
 									</div>
 								</td>
@@ -157,7 +160,8 @@
 			{% endset %}
 
 			{{ forms.field({
-				label: "Which locales should entries in this section target?"|t
+				label: "Which locales should entries in this section target?"|t,
+				errors: section.getErrors('localeErrors'),
 			}, localesInput) }}
 		{% endif %}
 
@@ -248,6 +252,15 @@
 		{% endif %}
 
 		<hr>
+
+		{% if CraftEdition >= CraftClient %}
+			{{ forms.checkboxField({
+				label: "Enable versioning for entries in this section?"|t,
+				id: 'enableVersioning',
+				name: 'enableVersioning',
+				checked: section.enableVersioning
+			}) }}
+		{% endif %}
 
 		<div class="buttons">
 			<input type="submit" class="btn submit" value="{{ 'Save'|t }}">

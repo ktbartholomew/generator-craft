@@ -110,11 +110,11 @@ class MockConfiguration
         }
 
         /**
-         * Whitelist trumps blacklist
+         * Whitelist trumps everything else
          */
         if (count($this->getWhiteListedMethods())) {
             $whitelist = array_map('strtolower', $this->getWhiteListedMethods());
-            $methods = array_filter($methods, function($method) use ($whitelist) {
+            $methods = array_filter($methods, function ($method) use ($whitelist) {
                 return $method->isAbstract() || in_array(strtolower($method->getName()), $whitelist);
             });
 
@@ -128,6 +128,21 @@ class MockConfiguration
             $blacklist = array_map('strtolower', $this->getBlackListedMethods());
             $methods = array_filter($methods, function ($method) use ($blacklist) {
                 return !in_array(strtolower($method->getName()), $blacklist);
+            });
+        }
+
+        /**
+         * Internal objects can not be instantiated with newInstanceArgs and if 
+         * they implement Serializable, unserialize will have to be called. As 
+         * such, we can't mock it and will need a pass to add a dummy 
+         * implementation
+         */
+        if ($this->getTargetClass() 
+            && $this->getTargetClass()->implementsInterface("Serializable")
+            && $this->getTargetClass()->hasInternalAncestor()) {
+
+            $methods = array_filter($methods, function ($method) {
+                return $method->getName() !== "unserialize";
             });
         }
 
@@ -299,10 +314,10 @@ class MockConfiguration
                 if (preg_match("/^\\\\?IteratorAggregate$/i", $interface)) {
                     $this->targetInterfaces[] = DefinedTargetClass::factory("\\IteratorAggregate");
                     $iteratorShiftedToFront = true;
-                } else if (preg_match("/^\\\\?Iterator$/i", $interface)) {
+                } elseif (preg_match("/^\\\\?Iterator$/i", $interface)) {
                     $this->targetInterfaces[] = DefinedTargetClass::factory("\\Iterator");
                     $iteratorShiftedToFront = true;
-                } else if (preg_match("/^\\\\?Traversable$/i", $interface)) {
+                } elseif (preg_match("/^\\\\?Traversable$/i", $interface)) {
                     $traversableFound = true;
                 }
             }
@@ -349,7 +364,7 @@ class MockConfiguration
         }
 
         if ($this->getTargetInterfaces()) {
-            $name .= array_reduce($this->getTargetInterfaces(), function($tmpname, $i) {
+            $name .= array_reduce($this->getTargetInterfaces(), function ($tmpname, $i) {
                 $tmpname .= '_' . str_replace("\\", "_", $i->getName());
                 return $tmpname;
             }, '');
@@ -367,7 +382,7 @@ class MockConfiguration
     public function getNamespaceName()
     {
         $parts = explode("\\", $this->getName());
-        $shortName = array_pop($parts);
+        array_pop($parts);
 
         if (count($parts)) {
             return implode("\\", $parts);

@@ -2,58 +2,72 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * Base element fieldtype class.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- * Base element fieldtype class
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.fieldtypes
+ * @since     1.0
  */
 abstract class BaseElementFieldType extends BaseFieldType
 {
+	// Properties
+	// =========================================================================
+
 	/**
-	 * @access protected
-	 * @var string $elementType The element type this field deals with.
+	 * List of built-in component aliases to be imported.
+	 *
+	 * @var string $elementType
 	 */
 	protected $elementType;
 
 	/**
-	 * @access protected
-	 * @var string|null $inputJsClass The JS class that should be initialized for the input.
+	 * The JS class that should be initialized for the input.
+	 *
+	 * @var string|null $inputJsClass
 	 */
 	protected $inputJsClass;
 
 	/**
-	 * @access protected
-	 * @var bool $allowMultipleSources Whether to allow multiple source selection in the settings.
+	 * Whether to allow multiple source selection in the settings.
+	 *
+	 * @var bool $allowMultipleSources
 	 */
 	protected $allowMultipleSources = true;
 
 	/**
-	 * @access protected
-	 * @var bool $allowLimit Whether to allow the Limit setting.
+	 * Whether to allow the Limit setting.
+	 *
+	 * @var bool $allowLimit
 	 */
 	protected $allowLimit = true;
 
 	/**
-	 * Template to use for field rendering
+	 * Template to use for field rendering.
+	 *
 	 * @var string
 	 */
 	protected $inputTemplate = '_includes/forms/elementSelect';
 
 	/**
-	 * @access protected
-	 * @var bool $sortable Whether the elements have a custom sort order.
+	 * Whether the elements have a custom sort order.
+	 *
+	 * @var bool $sortable
 	 */
 	protected $sortable = true;
 
 	/**
-	 * Returns the type of field this is.
+	 * @var bool
+	 */
+	private $_makeExistingRelationsTranslatable = false;
+
+	// Public Methods
+	// =========================================================================
+
+	/**
+	 * @inheritDoc IComponentType::getName()
 	 *
 	 * @return string
 	 */
@@ -63,7 +77,7 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Returns the content attribute config.
+	 * @inheritDoc IFieldType::defineContentAttribute()
 	 *
 	 * @return mixed
 	 */
@@ -73,34 +87,7 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Defines the settings.
-	 *
-	 * @access protected
-	 * @return array
-	 */
-	protected function defineSettings()
-	{
-		if ($this->allowMultipleSources)
-		{
-			$settings['sources'] = AttributeType::Mixed;
-		}
-		else
-		{
-			$settings['source'] = AttributeType::String;
-		}
-
-		$settings['targetLocale'] = AttributeType::String;
-
-		if ($this->allowLimit)
-		{
-			$settings['limit'] = array(AttributeType::Number, 'min' => 0);
-		}
-
-		return $settings;
-	}
-
-	/**
-	 * Returns the field's settings HTML.
+	 * @inheritDoc ISavableComponentType::getSettingsHtml()
 	 *
 	 * @return string|null
 	 */
@@ -127,11 +114,10 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Validates the value beyond the checks that were assumed based on the content attribute.
-	 *
-	 * Returns 'true' or any custom validation errors.
+	 * @inheritDoc IFieldType::validate()
 	 *
 	 * @param array $value
+	 *
 	 * @return true|string|array
 	 */
 	public function validate($value)
@@ -161,9 +147,10 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Preps the field value for use.
+	 * @inheritDoc IFieldType::prepValue()
 	 *
 	 * @param mixed $value
+	 *
 	 * @return ElementCriteriaModel
 	 */
 	public function prepValue($value)
@@ -171,8 +158,7 @@ abstract class BaseElementFieldType extends BaseFieldType
 		$criteria = craft()->elements->getCriteria($this->elementType);
 		$criteria->locale = $this->getTargetLocale();
 
-		// $value will be an array of element IDs if there was a validation error
-		// or we're loading a draft/version.
+		// $value will be an array of element IDs if there was a validation error or we're loading a draft/version.
 		if (is_array($value))
 		{
 			$criteria->id = array_values(array_filter($value));
@@ -194,6 +180,17 @@ abstract class BaseElementFieldType extends BaseFieldType
 			{
 				$criteria->order = 'sortOrder';
 			}
+
+			if (!$this->allowMultipleSources && $this->getSettings()->source)
+			{
+				$source = $this->getElementType()->getSource($this->getSettings()->source);
+
+				// Does the source specify any criteria attributes?
+				if (!empty($source['criteria']))
+				{
+					$criteria->setAttributes($source['criteria']);
+				}
+			}
 		}
 		else
 		{
@@ -213,10 +210,11 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Returns the field's input HTML.
+	 * @inheritDoc IFieldType::getInputHtml()
 	 *
 	 * @param string $name
 	 * @param mixed  $criteria
+	 *
 	 * @return string
 	 */
 	public function getInputHtml($name, $criteria)
@@ -226,15 +224,14 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Returns the search keywords that should be associated with this field,
-	 * based on the prepped post data.
+	 * @inheritDoc IFieldType::getSearchKeywords()
 	 *
-	 * @param mixed $value
+	 * @param ElementCriteriaModel $criteria
+	 *
 	 * @return string
 	 */
-	public function getSearchKeywords($value)
+	public function getSearchKeywords($criteria)
 	{
-		$criteria = $this->prepValue(null);
 		$titles = array();
 
 		foreach ($criteria->find() as $element)
@@ -246,7 +243,9 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
-	 * Performs any additional actions after the element has been saved.
+	 * @inheritDoc IFieldType::onAfterElementSave()
+	 *
+	 * @return null
 	 */
 	public function onAfterElementSave()
 	{
@@ -259,9 +258,75 @@ abstract class BaseElementFieldType extends BaseFieldType
 	}
 
 	/**
+	 * @inheritDoc BaseFieldType::getStaticHtml()
+	 *
+	 * @param mixed $value
+	 *
+	 * @return string
+	 */
+	public function getStaticHtml($value)
+	{
+		if (count($value))
+		{
+			$html = '<div class="elementselect"><div class="elements">';
+
+			foreach ($value as $element)
+			{
+				$html .= craft()->templates->render('_elements/element', array(
+					'element' => $element
+				));
+			}
+
+			$html .= '</div></div>';
+			return $html;
+		}
+		else
+		{
+			return '<p class="light">'.Craft::t('Nothing selected.').'</p>';
+		}
+	}
+
+	/**
+	 * @inheritDoc IFieldType::onBeforeSave()
+	 *
+	 * @return null
+	 */
+	public function onBeforeSave()
+	{
+		$this->_makeExistingRelationsTranslatable = false;
+
+		if ($this->model->id && $this->model->translatable)
+		{
+			$existingField = craft()->fields->getFieldById($this->model->id);
+
+			if ($existingField && $existingField->translatable == 0)
+			{
+				$this->_makeExistingRelationsTranslatable = true;
+			}
+		}
+	}
+
+	/**
+	 * @inheritDoc IFieldType::onAfterSave()
+	 *
+	 * @return null
+	 */
+	public function onAfterSave()
+	{
+		if ($this->_makeExistingRelationsTranslatable)
+		{
+			craft()->tasks->createTask('LocalizeRelations', null, array(
+				'fieldId' => $this->model->id,
+			));
+		}
+	}
+
+	// Protected Methods
+	// =========================================================================
+
+	/**
 	 * Returns the label for the "Add" button.
 	 *
-	 * @access protected
 	 * @return string
 	 */
 	protected function getAddButtonLabel()
@@ -274,9 +339,8 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns the element type.
 	 *
-	 * @access protected
-	 * @return BaseElementType
 	 * @throws Exception
+	 * @return BaseElementType
 	 */
 	protected function getElementType()
 	{
@@ -293,9 +357,9 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns an array of variables that should be passed to the input template.
 	 *
-	 * @access protected
 	 * @param string $name
 	 * @param mixed  $criteria
+	 *
 	 * @return array
 	 */
 	protected function getInputTemplateVariables($name, $criteria)
@@ -334,7 +398,6 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns an array of the source keys the field should be able to select elements from.
 	 *
-	 * @access protected
 	 * @return array
 	 */
 	protected function getInputSources()
@@ -354,7 +417,6 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns any additional criteria parameters limiting which elements the field should be able to select.
 	 *
-	 * @access protected
 	 * @return array
 	 */
 	protected function getInputSelectionCriteria()
@@ -365,7 +427,6 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns the locale that target elements should have.
 	 *
-	 * @access protected
 	 * @return string
 	 */
 	protected function getTargetLocale()
@@ -390,7 +451,6 @@ abstract class BaseElementFieldType extends BaseFieldType
 	/**
 	 * Returns the HTML for the Target Locale setting.
 	 *
-	 * @access protected
 	 * @return string|null
 	 */
 	protected function getTargetLocaleFieldHtml()
@@ -417,5 +477,31 @@ abstract class BaseElementFieldType extends BaseFieldType
 				)
 			));
 		}
+	}
+
+	/**
+	 * @inheritDoc BaseSavableComponentType::defineSettings()
+	 *
+	 * @return array
+	 */
+	protected function defineSettings()
+	{
+		if ($this->allowMultipleSources)
+		{
+			$settings['sources'] = AttributeType::Mixed;
+		}
+		else
+		{
+			$settings['source'] = AttributeType::String;
+		}
+
+		$settings['targetLocale'] = AttributeType::String;
+
+		if ($this->allowLimit)
+		{
+			$settings['limit'] = array(AttributeType::Number, 'min' => 0);
+		}
+
+		return $settings;
 	}
 }

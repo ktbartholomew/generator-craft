@@ -2,22 +2,27 @@
 namespace Craft;
 
 /**
- * Craft by Pixel & Tonic
+ * The TagsController class is a controller that handles various tag and tag group related tasks such as displaying,
+ * saving, deleting, searching and creating tags and tag groups in the control panel.
  *
- * @package   Craft
- * @author    Pixel & Tonic, Inc.
+ * Note that all actions in the controller require an authenticated Craft session via {@link BaseController::allowAnonymous}.
+ *
+ * @author    Pixel & Tonic, Inc. <support@pixelandtonic.com>
  * @copyright Copyright (c) 2014, Pixel & Tonic, Inc.
  * @license   http://buildwithcraft.com/license Craft License Agreement
- * @link      http://buildwithcraft.com
- */
-
-/**
- *
+ * @see       http://buildwithcraft.com
+ * @package   craft.app.controllers
+ * @since     1.1
  */
 class TagsController extends BaseController
 {
+	// Public Methods
+	// =========================================================================
+
 	/**
-	 * Tag settings index.
+	 * Called before displaying the tag settings index page.
+	 *
+	 * @return null
 	 */
 	public function actionIndex()
 	{
@@ -34,6 +39,9 @@ class TagsController extends BaseController
 	 * Edit a tag group.
 	 *
 	 * @param array $variables
+	 *
+	 * @throws HttpException
+	 * @return null
 	 */
 	public function actionEditTagGroup(array $variables = array())
 	{
@@ -79,6 +87,8 @@ class TagsController extends BaseController
 
 	/**
 	 * Save a tag group.
+	 *
+	 * @return null
 	 */
 	public function actionSaveTagGroup()
 	{
@@ -93,7 +103,7 @@ class TagsController extends BaseController
 		$tagGroup->handle = craft()->request->getPost('handle');
 
 		// Set the field layout
-		$fieldLayout = craft()->fields->assembleLayoutFromPost(false);
+		$fieldLayout = craft()->fields->assembleLayoutFromPost();
 		$fieldLayout->type = ElementType::Tag;
 		$tagGroup->setFieldLayout($fieldLayout);
 
@@ -116,6 +126,8 @@ class TagsController extends BaseController
 
 	/**
 	 * Deletes a tag group.
+	 *
+	 * @return null
 	 */
 	public function actionDeleteTagGroup()
 	{
@@ -131,6 +143,8 @@ class TagsController extends BaseController
 
 	/**
 	 * Searches for tags.
+	 *
+	 * @return null
 	 */
 	public function actionSearchForTags()
 	{
@@ -150,13 +164,13 @@ class TagsController extends BaseController
 
 		$criteria = craft()->elements->getCriteria(ElementType::Tag);
 		$criteria->groupId = $tagGroupId;
-		$criteria->search  = 'name:'.implode('* name:', preg_split('/\s+/', $search)).'*';
+		$criteria->title   = DbHelper::escapeParam($search).'*';
 		$criteria->id      = $notIds;
 		$tags = $criteria->find();
 
 		$return = array();
 		$exactMatches = array();
-		$tagNameLengths = array();
+		$tagTitleLengths = array();
 		$exactMatch = false;
 
 		$normalizedSearch = StringHelper::normalizeKeywords($search);
@@ -164,15 +178,15 @@ class TagsController extends BaseController
 		foreach ($tags as $tag)
 		{
 			$return[] = array(
-				'id'   => $tag->id,
-				'name' => $tag->name
+				'id'    => $tag->id,
+				'title' => $tag->getContent()->title
 			);
 
-			$tagNameLengths[] = mb_strlen($tag->name);
+			$tagTitleLengths[] = mb_strlen($tag->getContent()->title);
 
-			$normalizedName = StringHelper::normalizeKeywords($tag->name);
+			$normalizedTitle = StringHelper::normalizeKeywords($tag->getContent()->title);
 
-			if ($normalizedName == $normalizedSearch)
+			if ($normalizedTitle == $normalizedSearch)
 			{
 				$exactMatches[] = 1;
 				$exactMatch = true;
@@ -183,7 +197,7 @@ class TagsController extends BaseController
 			}
 		}
 
-		array_multisort($exactMatches, SORT_DESC, $tagNameLengths, $return);
+		array_multisort($exactMatches, SORT_DESC, $tagTitleLengths, $return);
 
 		$this->returnJson(array(
 			'tags'       => $return,
@@ -193,6 +207,8 @@ class TagsController extends BaseController
 
 	/**
 	 * Creates a new tag.
+	 *
+	 * @return null
 	 */
 	public function actionCreateTag()
 	{
@@ -201,7 +217,7 @@ class TagsController extends BaseController
 
 		$tag = new TagModel();
 		$tag->groupId = craft()->request->getRequiredPost('groupId');
-		$tag->name = craft()->request->getRequiredPost('name');
+		$tag->getContent()->title = craft()->request->getRequiredPost('title');
 
 		if (craft()->tags->saveTag($tag))
 		{

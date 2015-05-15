@@ -1,6 +1,6 @@
 {
   "name": "generator-craft",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A Yeoman generator that creates a Vagrant box, then installs the Craft CMS and some front-end tools.",
   "license": "MIT",
   "main": "app/index.js",
